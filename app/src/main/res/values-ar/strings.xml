@@ -1,0 +1,152 @@
+<resources>
+    <string name="app_name">منظم الملفات</string>
+    <string name="title_video_compressor">ضغط الفيديو</string>
+    <string name="desc_video_compressor">تقليل حجم الفيديو إلى الحجم الذي تريده.</string>
+    <string name="title_duplicate_files">الملفات المتكررة</string>
+    <string name="desc_duplicate_files">البحث عن الملفات والصور والفيديوهات المتكررة.</string>
+    <string name="title_images_to_pdf">الصور إلى PDF</string>
+    <string name="img_pdf_max_limit">الحد الأقصى هو 3 صور فقط.</string>
+    <string name="desc_images_to_pdf">تحديد مجموعة من الصور وتحويلها إلى ملف PDF واحد.</string>
+    <string name="title_large_files">الملفات الكبيرة</string>
+    <string name="desc_large_files">العثور على أكبر الملفات التي تستهلك مساحة الهاتف.</string>
+    <string name="title_pdf_tools">&#x202b;أدوات PDF&#x202c;</string>
+    <string name="desc_pdf_tools">&#x202b;دمج ملفات PDF وحذف الصفحات.&#x202c;</string>
+    
+    <!-- Settings Strings -->
+    <string name="settings_title">الإعدادات</string>
+    <string name="settings_ads_section">الترقية</string>
+    <string name="settings_ads_title">الترقية للنسخة الاحترافية</string>
+    <string name="settings_ads_subtitle">استمتع بتجربة بدون إعلانات.</string>
+    
+    <string name="sub_title">اختر الباقة المناسبة لك</string>
+    <string name="sub_6_months">6 أشهر - Premium</string>
+    <string name="sub_6_months_price">19.99 ر.س</string>
+    <string name="sub_6_months_desc">بدون إعلانات.</string>
+    <string name="sub_1_year">12 شهر - Premium</string>
+    <string name="sub_1_year_price">29.99 ر.س</string>
+    <string name="sub_1_year_desc">بدون إعلانات.</string>
+    <string name="sub_best_value">أفضل سعر</string>
+    <string name="sub_subscribe_btn">اشترك الآن</string>
+    <string name="sub_restore_btn">استعادة المشتريات</string>
+    <string name="settings_clear_cache">تنظيف الذاكرة المؤقتة</string>
+    <string name="settings_cache_cleared">تم تنظيف الذاكرة المؤقتة بنجاح</string>
+    <string name="settings_general_section">عام</string>
+    <string name="settings_save_location">مسار الحفظ الافتراضي</string>
+    <string name="settings_about_section">عن التطبيق</string>
+    <string name="settings_app_version">الإصدار</string>
+    <string name="settings_share_app">مشاركة التطبيق</string>
+    <string name="settings_rate_us">قيمنا على المتجر</string>
+    <string name="settings_privacy_policy">سياسة الخصوصية</string>
+    <string name="settings_icon_desc">الإعدادات</string>
+    <string name="settings_cache_size_prefix">المساحة المؤقتة: </string>
+    <string name="settings_save_location_desc">تُحفظ الملفات تلقائياً في مجلدات الهاتف الأساسية (ولا يمكن تغييره لأسباب تقنية)</string>
+    <string name="settings_app_version_value">الإصدار 1.0.11</string>
+    <string name="settings_share_subject">تطبيق منظم الملفات (FileKit)</string>
+    <string name="settings_share_text">جرب تطبيق منظم الملفات الرائع للتحكم بالفيديوهات والصور والـ PDF! 
+https://play.google.com/store/apps/details?id=fileorganizer.app</string>
+    <string name="settings_lang_section">عام</string>
+    <string name="settings_lang_title">اللغة</string>
+    <string name="settings_lang_subtitle">العربية / English</string>
+    <string name="settings_theme_title">المظهر</string>
+    <string name="settings_theme_light">فاتح</string>
+    <string name="settings_theme_dark">داكن</string>
+    <string name="settings_success">تم بنجاح</string>
+    <string name="settings_back_desc">رجوع</string>
+    <string name="home_title">منظم الملفات</string>
+    <string name="home_subtitle">أدوات متكاملة لإدارة ملفاتك بسهولة</string>
+    <!-- Common -->
+    <string name="action_back">رجوع</string>
+    <string name="action_cancel">إلغاء</string>
+    <string name="action_open_folder">فتح المجلد</string>
+    <string name="action_ok">موافق</string>
+    <string name="action_info">معلومة</string>
+    <string name="action_up">أعلى</string>
+    <string name="action_down">أسفل</string>
+    <string name="action_remove">إزالة</string>
+    
+    <!-- Video Compressor -->
+    <string name="vc_success">تم بنجاح! تم حفظ الفيديو في مجلد Movies/FileKit.</string>
+    <string name="vc_failed">فشل الضغط: %1$s</string>
+    <string name="vc_cancelled">تم إلغاء الضغط.</string>
+    <string name="vc_select_video_prompt">قم باختيار فيديو للبدء</string>
+    <string name="vc_select_video_btn">اختيار فيديو</string>
+    <string name="vc_video_ready">الفيديو المختار جاهز</string>
+    <string name="vc_quality_prompt">اختر جودة الضغط (للحفاظ على الجودة):</string>
+    <string name="vc_quality_high">عالية</string>
+    <string name="vc_quality_medium">متوسطة</string>
+    <string name="vc_compressing">جاري الضغط... %1$d%%</string>
+    <string name="vc_start_btn">بدء الضغط</string>
+    <string name="vc_select_another_btn">اختيار فيديو آخر</string>
+    
+    <!-- PDF Tools -->
+    <string name="pdf_err_min_files">يرجى اختيار ملفين على الأقل للدمج</string>
+    <string name="pdf_merge_success">تم الدمج بنجاح\nتم الحفظ باسم %1$s</string>
+    <string name="pdf_merge_failed">خطأ أثناء الدمج: %1$s</string>
+    <string name="pdf_err_empty_pages">يرجى إدخال أرقام الصفحات</string>
+    <string name="pdf_err_invalid_pages">صيغة أرقام الصفحات غير صحيحة</string>
+    <string name="pdf_err_delete_all">لا يمكن حذف جميع الصفحات! يجب إبقاء صفحة واحدة على الأقل.</string>
+    <string name="pdf_delete_success">تم حذف الصفحات بنجاح\nتم الحفظ باسم %1$s</string>
+    <string name="pdf_delete_failed">خطأ أثناء الحذف: %1$s</string>
+    <string name="pdf_unknown_file">ملف غير معروف</string>
+    <string name="pdf_tab_merge">&#x202b;دمج ملفات PDF&#x202c;</string>
+    <string name="pdf_tab_delete">&#x202b;حذف صفحات PDF&#x202c;</string>
+    <string name="pdf_err_max_files">الحد الأقصى للدمج هو 5 ملفات فقط</string>
+    <string name="pdf_save_folder">مجلد الحفظ</string>
+    <string name="pdf_processing">جاري المعالجة...</string>
+    <string name="pdf_merge_prompt">قم باختيار ملفات PDF للدمج</string>
+    <string name="pdf_select_file">&#x202b;اختر ملف PDF&#x202c;</string>
+    <string name="pdf_selected_files">الملفات المختارة (%1$d/%2$d):</string>
+    <string name="pdf_add_files">إضافة ملفات</string>
+    <string name="pdf_merge_btn">دمج الآن</string>
+    <string name="pdf_delete_prompt">قم باختيار ملف PDF للحذف</string>
+    <string name="pdf_selected_file">الملف المختار:</string>
+    <string name="pdf_change_file">تغيير الملف</string>
+    <string name="pdf_file_selected_success">تم اختيار الملف بنجاح</string>
+    <string name="pdf_pages_to_delete_label">أرقام الصفحات المراد حذفها</string>
+    <string name="pdf_pages_placeholder">مثال: 1, 3, 5-7</string>
+    <string name="pdf_delete_btn">حذف الصفحات</string>
+    
+    <!-- Images To Pdf -->
+    <string name="img2pdf_creating">جاري إنشاء ملف PDF...</string>
+    <string name="img2pdf_success">تم الإنشاء بنجاح\nتم الحفظ باسم %1$s</string>
+    <string name="img2pdf_failed">خطأ أثناء الإنشاء: %1$s</string>
+    <string name="img2pdf_cancelled">تم إلغاء الإنشاء.</string>
+    <string name="img2pdf_prompt">قم بإضافة الصور لتحويلها إلى PDF</string>
+    <string name="img2pdf_select_prompt">قم باختيار صور للبدء</string>
+    <string name="img2pdf_select_btn">اختيار صور</string>
+    <string name="img2pdf_selected_count">تم اختيار %1$d صورة</string>
+    <string name="img2pdf_convert_btn">تحويل إلى PDF</string>
+    <string name="img2pdf_select_another">اختيار صور أخرى</string>
+    
+    <!-- Duplicate Files -->
+    <string name="dup_title">بحث عن الملفات المتكررة</string>
+    <string name="dup_no_files">لا توجد ملفات متكررة</string>
+    <string name="dup_searching">جاري البحث... قد يستغرق هذا بعض الوقت</string>
+    <string name="dup_cancel_search">إلغاء البحث</string>
+    <string name="dup_delete_dialog_title">حذف المكررة</string>
+    <string name="dup_delete_dialog_msg">هل أنت متأكد من حذف %1$d ملفات محددة؟</string>
+    <string name="dup_delete_selected">حذف المحدد</string>
+    <string name="dup_delete_success">تم الحذف بنجاح.</string>
+    <string name="dup_delete_fail">فشل في حذف الملفات.</string>
+    <string name="dup_permission_fail">لا يمكن حذف هذه الملفات مباشرة بسبب قيود حماية أندرويد. يرجى حذفها يدوياً من الاستديو أو مدير الملفات.</string>
+    <string name="dup_err_no_selection">يرجى تحديد ملف واحد على الأقل للحذف.</string>
+    <string name="dup_list_title">الملفات المتكررة:</string>
+    
+    <!-- Large Files -->
+    <string name="large_title">بحث عن الملفات الكبيرة (أكبر من 50MB)</string>
+    <string name="large_no_files">لم يتم العثور على ملفات كبيرة</string>
+    <string name="large_searching">جاري البحث...</string>
+    <string name="perm_storage_title">إذن التخزين مطلوب</string>
+    <string name="perm_storage_msg">للبحث عن الملفات الكبيرة وإدارتها، يحتاج هذا التطبيق إلى الوصول إلى مساحة التخزين. يرجى منح الإذن للمتابعة.</string>
+    <string name="perm_grant_btn">منح الإذن</string>
+    <!-- Missing Duplicate Files & Common -->
+    <string name="action_refresh">تحديث</string>
+    <string name="action_delete">حذف</string>
+
+    <string name="dup_searching_progress">جاري البحث... %1$d%%</string>
+    <string name="action_previous">السابق</string>
+    <string name="dup_page_info">صفحة %1$d من %2$d</string>
+    <string name="action_next">التالي</string>
+    <string name="action_select_all_page">تحديد الكل في هذه الصفحة</string>
+</resources>
+
