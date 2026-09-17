@@ -13,7 +13,7 @@ import com.google.android.gms.ads.interstitial.InterstitialAdLoadCallback
 object AdHelper {
     private const val TAG = "AdHelper"
     // Test Interstitial Ad Unit ID provided by Google
-    private const val AD_UNIT_ID = "ca-app-pub-3940256099942544/1033173712"
+    private const val AD_UNIT_ID = "ca-app-pub-5529222451841351/3631189983"
     
     private var mInterstitialAd: InterstitialAd? = null
     private var isAdLoading = false

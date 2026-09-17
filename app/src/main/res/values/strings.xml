@@ -41,7 +41,7 @@
     <string name="settings_icon_desc">Settings</string>
     <string name="settings_cache_size_prefix">Temporary Space: </string>
     <string name="settings_save_location_desc">Files are saved automatically in the phone\'s primary folders (cannot be changed for technical reasons)</string>
-    <string name="settings_app_version_value">Version 1.0.11</string>
+    <string name="settings_app_version_value">Version 1.0.12</string>
     <string name="settings_share_subject">FileKit App</string>
     <string name="settings_share_text">Try the amazing FileKit app to manage videos, images, and PDFs!
 https://play.google.com/store/apps/details?id=fileorganizer.app</string>
