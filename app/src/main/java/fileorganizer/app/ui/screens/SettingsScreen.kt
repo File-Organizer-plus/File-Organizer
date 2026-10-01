@@ -48,6 +48,7 @@ fun SettingsScreen(
     viewModel: SettingsViewModel = viewModel()
 ) {
     val context = LocalContext.current
+    val isPremium by fileorganizer.app.utils.BillingManager.isPremium.collectAsState()
 
     Scaffold(
         topBar = {
@@ -78,8 +79,12 @@ fun SettingsScreen(
             SettingsItemCard {
                 SettingsRowItem(
                     icon = Icons.Filled.Verified,
-                    title = stringResource(id = R.string.settings_ads_title),
-                    subtitle = stringResource(id = R.string.settings_ads_subtitle),
+                    title = stringResource(
+                        id = if (isPremium) R.string.sub_active_btn else R.string.settings_ads_title
+                    ),
+                    subtitle = stringResource(
+                        id = if (isPremium) R.string.sub_premium_active else R.string.settings_ads_subtitle
+                    ),
                     onClick = { onNavigateToSubscription() },
                     tint = fileorganizer.app.theme.ToolYellow
                 )
