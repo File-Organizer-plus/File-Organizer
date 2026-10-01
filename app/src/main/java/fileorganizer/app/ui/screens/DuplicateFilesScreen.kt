@@ -44,7 +44,7 @@ fun DuplicateFilesScreen(
     viewModel: DuplicateFilesViewModel = viewModel()
 ) {
     val context = LocalContext.current
-    
+
     // Check initial permission state
     var hasPermission by remember {
         mutableStateOf(
@@ -77,7 +77,6 @@ fun DuplicateFilesScreen(
             viewModel.loadFiles()
         }
     }
-
 
     val selectedFiles by viewModel.selectedFileIds.collectAsState()
     var showDeleteDialog by remember { mutableStateOf(false) }
@@ -142,7 +141,7 @@ fun DuplicateFilesScreen(
                 DuplicateFilesContent(viewModel)
             }
         }
-        
+
         if (showDeleteDialog) {
             AlertDialog(
                 onDismissRequest = { showDeleteDialog = false },
@@ -170,15 +169,15 @@ fun DuplicateFilesScreen(
                 }
             )
         }
-        
+
         val resultMessage by viewModel.resultMessage.collectAsState()
         if (resultMessage != null) {
             AlertDialog(
                 onDismissRequest = { viewModel.clearResultMessage() },
                 text = { Text(resultMessage!!, style = MaterialTheme.typography.bodyLarge) },
                 confirmButton = {
-                    TextButton(onClick = { 
-                        viewModel.clearResultMessage() 
+                    TextButton(onClick = {
+                        viewModel.clearResultMessage()
                     }) {
                         Text(stringResource(id = R.string.action_ok))
                     }
@@ -191,19 +190,25 @@ fun DuplicateFilesScreen(
 @Composable
 fun DuplicateFilesContent(viewModel: DuplicateFilesViewModel) {
     val isLoading by viewModel.isLoading.collectAsState()
+    val searchFailed by viewModel.searchFailed.collectAsState()
     val pagedFiles by viewModel.pagedFiles.collectAsState()
     val currentPage by viewModel.currentPage.collectAsState()
     val totalPages = viewModel.totalPages
+
     if (isLoading) {
         val progress by viewModel.progress.collectAsState()
         Column(
-            modifier = Modifier.fillMaxSize(), 
+            modifier = Modifier.fillMaxSize(),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
             CircularProgressIndicator(progress = { progress }, modifier = Modifier.size(64.dp))
             Spacer(modifier = Modifier.height(16.dp))
             Text(stringResource(id = R.string.dup_searching_progress, (progress * 100).toInt()), style = MaterialTheme.typography.titleMedium)
+        }
+    } else if (searchFailed) {
+        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            Text(stringResource(id = R.string.search_failed), style = MaterialTheme.typography.bodyLarge)
         }
     } else if (pagedFiles.isEmpty()) {
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -235,13 +240,13 @@ fun DuplicateFilesContent(viewModel: DuplicateFilesViewModel) {
                 ) {
                     Text(stringResource(id = R.string.action_previous))
                 }
-                
+
                 Text(
                     text = stringResource(id = R.string.dup_page_info, currentPage + 1, if (totalPages == 0) 1 else totalPages),
                     style = MaterialTheme.typography.bodyMedium,
                     fontWeight = FontWeight.Bold
                 )
-                
+
                 Button(
                     onClick = { viewModel.nextPage() },
                     enabled = currentPage < totalPages - 1
@@ -263,7 +268,7 @@ fun DuplicateFileItemRow(file: DuplicateFileItem, viewModel: DuplicateFilesViewM
             }
             .build()
     }
-    
+
     val selectedFiles by viewModel.selectedFileIds.collectAsState()
     val isSelected = selectedFiles.contains(file.id)
 
@@ -286,7 +291,7 @@ fun DuplicateFileItemRow(file: DuplicateFileItem, viewModel: DuplicateFilesViewM
                 onCheckedChange = { viewModel.toggleSelection(file.id) }
             )
             Spacer(modifier = Modifier.width(8.dp))
-            
+
             Box(
                 modifier = Modifier
                     .size(64.dp)
@@ -295,7 +300,7 @@ fun DuplicateFileItemRow(file: DuplicateFileItem, viewModel: DuplicateFilesViewM
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
-                    imageVector = Icons.Filled.InsertDriveFile, 
+                    imageVector = Icons.Filled.InsertDriveFile,
                     contentDescription = null,
                     modifier = Modifier.size(32.dp),
                     tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
