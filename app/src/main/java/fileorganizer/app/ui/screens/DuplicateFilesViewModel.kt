@@ -41,6 +41,9 @@ class DuplicateFilesViewModel(application: Application) : AndroidViewModel(appli
     private val _isLoading = MutableStateFlow(false)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
 
+    private val _isBusy = MutableStateFlow(false)
+    val isBusy: StateFlow<Boolean> = _isBusy.asStateFlow()
+
     private val _searchFailed = MutableStateFlow(false)
     val searchFailed: StateFlow<Boolean> = _searchFailed.asStateFlow()
 
@@ -60,38 +63,45 @@ class DuplicateFilesViewModel(application: Application) : AndroidViewModel(appli
     private val pageSize = 20 // increased page size for duplicates
 
     fun loadFiles() {
+        if (_isBusy.value) return
+
+        _isBusy.value = true
+        _progress.value = 0f
+        _isLoading.value = true
+        _searchFailed.value = false
+
         viewModelScope.launch {
-            _progress.value = 0f
-            _isLoading.value = true
-            _searchFailed.value = false
-
-            val duplicates = try {
-                withContext(Dispatchers.IO) {
-                    queryDuplicateFiles()
+            try {
+                val duplicates = try {
+                    withContext(Dispatchers.IO) {
+                        queryDuplicateFiles()
+                    }
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                    _searchFailed.value = true
+                    _progress.value = 0f
+                    emptyList()
                 }
-            } catch (e: Exception) {
-                e.printStackTrace()
-                _searchFailed.value = true
-                _progress.value = 0f
-                emptyList()
-            }
 
-            _allFiles.value = duplicates
-            _currentPage.value = 0
+                _allFiles.value = duplicates
+                _currentPage.value = 0
 
-            // Auto-select verified duplicates for deletion (keep the oldest one unselected)
-            val toSelect = mutableSetOf<Long>()
-            val groups = duplicates.groupBy { it.contentHash }
-            for (group in groups.values) {
-                val sorted = group.sortedBy { it.dateAdded }
-                if (sorted.size > 1) {
-                    sorted.drop(1).forEach { toSelect.add(it.id) }
+                // Auto-select verified duplicates for deletion (keep the oldest one unselected)
+                val toSelect = mutableSetOf<Long>()
+                val groups = duplicates.groupBy { it.contentHash }
+                for (group in groups.values) {
+                    val sorted = group.sortedBy { it.dateAdded }
+                    if (sorted.size > 1) {
+                        sorted.drop(1).forEach { toSelect.add(it.id) }
+                    }
                 }
-            }
-            _selectedFileIds.value = toSelect
+                _selectedFileIds.value = toSelect
 
-            updatePagedFiles()
-            _isLoading.value = false
+                updatePagedFiles()
+            } finally {
+                _isLoading.value = false
+                _isBusy.value = false
+            }
         }
     }
 
@@ -357,36 +367,45 @@ class DuplicateFilesViewModel(application: Application) : AndroidViewModel(appli
     }
 
     fun deleteSelectedFiles(successMsg: String, failMsg: String, permissionFailMsg: String) {
+        if (_isBusy.value) return
+
+        val selected = _selectedFileIds.value
+        if (selected.isEmpty()) return
+
+        _isBusy.value = true
+
         viewModelScope.launch {
-            val selected = _selectedFileIds.value
-            if (selected.isEmpty()) return@launch
+            try {
+                val filesToDelete = _allFiles.value.filter { it.id in selected }
+                var successCount = 0
+                var permissionDenied = false
 
-            val filesToDelete = _allFiles.value.filter { it.id in selected }
-            var successCount = 0
-            var permissionDenied = false
-
-            withContext(Dispatchers.IO) {
-                filesToDelete.forEach { fileItem ->
-                    val result = deleteFileAndConfirm(fileItem)
-                    if (result.deleted) {
-                        successCount++
-                    }
-                    if (result.permissionDenied) {
-                        permissionDenied = true
+                withContext(Dispatchers.IO) {
+                    filesToDelete.forEach { fileItem ->
+                        val result = deleteFileAndConfirm(fileItem)
+                        if (result.deleted) {
+                            successCount++
+                        }
+                        if (result.permissionDenied) {
+                            permissionDenied = true
+                        }
                     }
                 }
+
+                clearSelection()
+
+                if (permissionDenied && successCount == 0) {
+                    _resultMessage.value = permissionFailMsg
+                } else if (successCount > 0) {
+                    _resultMessage.value = successMsg.replace("%1\$d", successCount.toString())
+                } else {
+                    _resultMessage.value = failMsg
+                }
+            } finally {
+                _isBusy.value = false
             }
 
-            clearSelection()
             loadFiles()
-
-            if (permissionDenied && successCount == 0) {
-                _resultMessage.value = permissionFailMsg
-            } else if (successCount > 0) {
-                _resultMessage.value = successMsg.replace("%1\$d", successCount.toString())
-            } else {
-                _resultMessage.value = failMsg
-            }
         }
     }
 }

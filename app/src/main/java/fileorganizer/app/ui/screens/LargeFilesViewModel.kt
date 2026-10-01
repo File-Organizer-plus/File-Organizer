@@ -37,6 +37,9 @@ class LargeFilesViewModel(application: Application) : AndroidViewModel(applicati
     private val _isLoading = MutableStateFlow(false)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
 
+    private val _isBusy = MutableStateFlow(false)
+    val isBusy: StateFlow<Boolean> = _isBusy.asStateFlow()
+
     private val _searchFailed = MutableStateFlow(false)
     val searchFailed: StateFlow<Boolean> = _searchFailed.asStateFlow()
 
@@ -53,24 +56,31 @@ class LargeFilesViewModel(application: Application) : AndroidViewModel(applicati
     private val pageSize = 10
 
     fun loadFiles() {
+        if (_isBusy.value) return
+
+        _isBusy.value = true
+        _isLoading.value = true
+        _searchFailed.value = false
+
         viewModelScope.launch {
-            _isLoading.value = true
-            _searchFailed.value = false
-
-            val files = try {
-                withContext(Dispatchers.IO) {
-                    queryLargeFiles()
+            try {
+                val files = try {
+                    withContext(Dispatchers.IO) {
+                        queryLargeFiles()
+                    }
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                    _searchFailed.value = true
+                    emptyList()
                 }
-            } catch (e: Exception) {
-                e.printStackTrace()
-                _searchFailed.value = true
-                emptyList()
-            }
 
-            _allFiles.value = files
-            _currentPage.value = 0
-            updatePagedFiles()
-            _isLoading.value = false
+                _allFiles.value = files
+                _currentPage.value = 0
+                updatePagedFiles()
+            } finally {
+                _isLoading.value = false
+                _isBusy.value = false
+            }
         }
     }
 
@@ -186,32 +196,41 @@ class LargeFilesViewModel(application: Application) : AndroidViewModel(applicati
     )
 
     fun deleteSelectedFiles(successMsg: String, failMsg: String, permissionFailMsg: String) {
+        if (_isBusy.value) return
+
+        val selected = _selectedFileIds.value
+        if (selected.isEmpty()) return
+
+        _isBusy.value = true
+
         viewModelScope.launch {
-            val selected = _selectedFileIds.value
-            if (selected.isEmpty()) return@launch
+            try {
+                val filesToDelete = _allFiles.value.filter { it.id in selected }
+                var successCount = 0
+                var permissionDenied = false
 
-            val filesToDelete = _allFiles.value.filter { it.id in selected }
-            var successCount = 0
-            var permissionDenied = false
-
-            withContext(Dispatchers.IO) {
-                filesToDelete.forEach { fileItem ->
-                    val result = deleteFileAndConfirm(fileItem)
-                    if (result.deleted) successCount++
-                    if (result.permissionDenied) permissionDenied = true
+                withContext(Dispatchers.IO) {
+                    filesToDelete.forEach { fileItem ->
+                        val result = deleteFileAndConfirm(fileItem)
+                        if (result.deleted) successCount++
+                        if (result.permissionDenied) permissionDenied = true
+                    }
                 }
+
+                clearSelection()
+
+                if (permissionDenied && successCount == 0) {
+                    _resultMessage.value = permissionFailMsg
+                } else if (successCount > 0) {
+                    _resultMessage.value = successMsg.replace("%1\$d", successCount.toString())
+                } else {
+                    _resultMessage.value = failMsg
+                }
+            } finally {
+                _isBusy.value = false
             }
 
-            clearSelection()
             loadFiles()
-
-            if (permissionDenied && successCount == 0) {
-                _resultMessage.value = permissionFailMsg
-            } else if (successCount > 0) {
-                _resultMessage.value = successMsg.replace("%1\$d", successCount.toString())
-            } else {
-                _resultMessage.value = failMsg
-            }
         }
     }
 
