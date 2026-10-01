@@ -12,10 +12,13 @@ import com.abedelazizshe.lightcompressorlibrary.VideoQuality
 import com.abedelazizshe.lightcompressorlibrary.config.Configuration
 import com.abedelazizshe.lightcompressorlibrary.config.SaveLocation
 import com.abedelazizshe.lightcompressorlibrary.config.SharedStorageConfiguration
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.io.File
 
 enum class CompressQuality {
@@ -86,19 +89,21 @@ class VideoCompressorViewModel(application: Application) : AndroidViewModel(appl
                     }
 
                     override fun onSuccess(index: Int, size: Long, path: String?) {
-                        val outputIsValid = verifyCompressedOutput(context, path, size)
-                        _isCompressing.value = false
+                        viewModelScope.launch {
+                            val outputIsValid = verifyCompressedOutputWithRetry(context, path, size)
+                            _isCompressing.value = false
 
-                        if (outputIsValid) {
-                            _progress.value = 100f
-                            _resultMessage.value = successMsg
-                        } else {
-                            deleteInvalidOutput(context, path)
-                            _progress.value = 0f
-                            _resultMessage.value = failMsg.replace(
-                                "%1\$s",
-                                "Compressed video could not be verified after saving"
-                            )
+                            if (outputIsValid) {
+                                _progress.value = 100f
+                                _resultMessage.value = successMsg
+                            } else {
+                                deleteInvalidOutput(context, path)
+                                _progress.value = 0f
+                                _resultMessage.value = failMsg.replace(
+                                    "%1\$s",
+                                    "Compressed video could not be verified after saving"
+                                )
+                            }
                         }
                     }
 
@@ -116,6 +121,21 @@ class VideoCompressorViewModel(application: Application) : AndroidViewModel(appl
                 }
             )
         }
+    }
+
+    private suspend fun verifyCompressedOutputWithRetry(
+        context: Context,
+        path: String?,
+        reportedSize: Long
+    ): Boolean = withContext(Dispatchers.IO) {
+        if (verifyCompressedOutput(context, path, reportedSize)) {
+            return@withContext true
+        }
+
+        // Only wait when the first verification fails. Normal successful
+        // compressions have no added delay.
+        delay(100)
+        verifyCompressedOutput(context, path, reportedSize)
     }
 
     private fun verifyCompressedOutput(context: Context, path: String?, reportedSize: Long): Boolean {
