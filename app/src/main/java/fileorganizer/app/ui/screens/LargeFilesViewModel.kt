@@ -24,7 +24,7 @@ data class LargeFileItem(
 
 class LargeFilesViewModel(application: Application) : AndroidViewModel(application) {
     private val _allFiles = MutableStateFlow<List<LargeFileItem>>(emptyList())
-    
+
     private val _currentPage = MutableStateFlow(0)
     val currentPage: StateFlow<Int> = _currentPage.asStateFlow()
 
@@ -37,9 +37,12 @@ class LargeFilesViewModel(application: Application) : AndroidViewModel(applicati
     private val _isLoading = MutableStateFlow(false)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
 
+    private val _searchFailed = MutableStateFlow(false)
+    val searchFailed: StateFlow<Boolean> = _searchFailed.asStateFlow()
+
     private val _resultMessage = MutableStateFlow<String?>(null)
     val resultMessage: StateFlow<String?> = _resultMessage.asStateFlow()
-    
+
     fun clearResultMessage() {
         _resultMessage.value = null
     }
@@ -52,9 +55,18 @@ class LargeFilesViewModel(application: Application) : AndroidViewModel(applicati
     fun loadFiles() {
         viewModelScope.launch {
             _isLoading.value = true
-            val files = withContext(Dispatchers.IO) {
-                queryLargeFiles()
+            _searchFailed.value = false
+
+            val files = try {
+                withContext(Dispatchers.IO) {
+                    queryLargeFiles()
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+                _searchFailed.value = true
+                emptyList()
             }
+
             _allFiles.value = files
             _currentPage.value = 0
             updatePagedFiles()
@@ -77,44 +89,40 @@ class LargeFilesViewModel(application: Application) : AndroidViewModel(applicati
         val sortOrder = "${MediaStore.Files.FileColumns.SIZE} DESC"
 
         val context = getApplication<Application>().applicationContext
-        
+
         val urisToQuery = listOf(
             MediaStore.Files.getContentUri("external"),
             MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
             MediaStore.Video.Media.EXTERNAL_CONTENT_URI
         )
 
-        try {
-            for (collection in urisToQuery) {
-                context.contentResolver.query(
-                    collection,
-                    projection,
-                    selection,
-                    selectionArgs,
-                    sortOrder
-                )?.use { cursor ->
-                    val idColumn = cursor.getColumnIndexOrThrow(MediaStore.Files.FileColumns._ID)
-                    val nameColumn = cursor.getColumnIndexOrThrow(MediaStore.Files.FileColumns.DISPLAY_NAME)
-                    val sizeColumn = cursor.getColumnIndexOrThrow(MediaStore.Files.FileColumns.SIZE)
-                    val dataColumn = cursor.getColumnIndexOrThrow(MediaStore.Files.FileColumns.DATA)
+        for (collection in urisToQuery) {
+            context.contentResolver.query(
+                collection,
+                projection,
+                selection,
+                selectionArgs,
+                sortOrder
+            )?.use { cursor ->
+                val idColumn = cursor.getColumnIndexOrThrow(MediaStore.Files.FileColumns._ID)
+                val nameColumn = cursor.getColumnIndexOrThrow(MediaStore.Files.FileColumns.DISPLAY_NAME)
+                val sizeColumn = cursor.getColumnIndexOrThrow(MediaStore.Files.FileColumns.SIZE)
+                val dataColumn = cursor.getColumnIndexOrThrow(MediaStore.Files.FileColumns.DATA)
 
-                    while (cursor.moveToNext()) {
-                        val id = cursor.getLong(idColumn)
-                        val name = cursor.getString(nameColumn) ?: "Unknown"
-                        val size = cursor.getLong(sizeColumn)
-                        val data = cursor.getString(dataColumn) ?: ""
-                        val uri = ContentUris.withAppendedId(collection, id)
+                while (cursor.moveToNext()) {
+                    val id = cursor.getLong(idColumn)
+                    val name = cursor.getString(nameColumn) ?: "Unknown"
+                    val size = cursor.getLong(sizeColumn)
+                    val data = cursor.getString(dataColumn) ?: ""
+                    val uri = ContentUris.withAppendedId(collection, id)
 
-                        if (fileList.none { it.path == data }) {
-                            fileList.add(LargeFileItem(id, name, size, uri, data))
-                        }
+                    if (fileList.none { it.path == data }) {
+                        fileList.add(LargeFileItem(id, name, size, uri, data))
                     }
                 }
             }
-        } catch (e: Exception) {
-            e.printStackTrace()
         }
-        
+
         fileList.sortByDescending { it.size }
         return fileList
     }
@@ -160,15 +168,15 @@ class LargeFilesViewModel(application: Application) : AndroidViewModel(applicati
     fun selectAllInCurrentPage() {
         val currentSelected = _selectedFileIds.value.toMutableSet()
         val currentPageFileIds = _pagedFiles.value.map { it.id }
-        
+
         val allSelected = currentPageFileIds.isNotEmpty() && currentPageFileIds.all { currentSelected.contains(it) }
-        
+
         if (allSelected) {
             currentPageFileIds.forEach { currentSelected.remove(it) }
         } else {
             currentSelected.addAll(currentPageFileIds)
         }
-        
+
         _selectedFileIds.value = currentSelected
     }
 
@@ -196,7 +204,7 @@ class LargeFilesViewModel(application: Application) : AndroidViewModel(applicati
 
             clearSelection()
             loadFiles()
-            
+
             if (permissionDenied && successCount == 0) {
                 _resultMessage.value = permissionFailMsg
             } else if (successCount > 0) {
