@@ -45,17 +45,10 @@ class MainActivity : ComponentActivity() {
       e.printStackTrace()
     }
 
-    // Initialize Billing before ads. AdHelper waits for a verified entitlement
-    // before it can load/show an interstitial, so Premium users never see one
-    // while Google Play is still checking their subscription.
+    // Billing checks Premium entitlement first. AdHelper initializes AdMob only
+    // after Google Play confirms the user is not Premium.
     try {
       fileorganizer.app.utils.BillingManager.initialize(applicationContext)
-    } catch (e: Exception) {
-      e.printStackTrace()
-    }
-
-    try {
-      com.google.android.gms.ads.MobileAds.initialize(this) {}
     } catch (e: Exception) {
       e.printStackTrace()
     }
