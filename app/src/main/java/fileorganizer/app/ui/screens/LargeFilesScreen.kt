@@ -44,7 +44,7 @@ fun LargeFilesScreen(
     viewModel: LargeFilesViewModel = viewModel()
 ) {
     val context = LocalContext.current
-    
+
     // Check initial permission state
     var hasPermission by remember {
         mutableStateOf(
@@ -77,7 +77,6 @@ fun LargeFilesScreen(
             viewModel.loadFiles()
         }
     }
-
 
     val selectedFiles by viewModel.selectedFileIds.collectAsState()
     var showDeleteDialog by remember { mutableStateOf(false) }
@@ -142,7 +141,7 @@ fun LargeFilesScreen(
                 LargeFilesContent(viewModel)
             }
         }
-        
+
         if (showDeleteDialog) {
             AlertDialog(
                 onDismissRequest = { showDeleteDialog = false },
@@ -170,15 +169,15 @@ fun LargeFilesScreen(
                 }
             )
         }
-        
+
         val resultMessage by viewModel.resultMessage.collectAsState()
         if (resultMessage != null) {
             AlertDialog(
                 onDismissRequest = { viewModel.clearResultMessage() },
                 text = { Text(resultMessage!!, style = MaterialTheme.typography.bodyLarge) },
                 confirmButton = {
-                    TextButton(onClick = { 
-                        viewModel.clearResultMessage() 
+                    TextButton(onClick = {
+                        viewModel.clearResultMessage()
                     }) {
                         Text(stringResource(id = R.string.action_ok))
                     }
@@ -218,6 +217,7 @@ fun PermissionRequestContent(onRequestPermission: () -> Unit) {
 @Composable
 fun LargeFilesContent(viewModel: LargeFilesViewModel) {
     val isLoading by viewModel.isLoading.collectAsState()
+    val searchFailed by viewModel.searchFailed.collectAsState()
     val pagedFiles by viewModel.pagedFiles.collectAsState()
     val currentPage by viewModel.currentPage.collectAsState()
     val totalPages = viewModel.totalPages
@@ -227,6 +227,10 @@ fun LargeFilesContent(viewModel: LargeFilesViewModel) {
             CircularProgressIndicator()
             Spacer(modifier = Modifier.height(16.dp))
             Text(stringResource(id = R.string.large_searching))
+        }
+    } else if (searchFailed) {
+        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            Text(stringResource(id = R.string.search_failed), style = MaterialTheme.typography.bodyLarge)
         }
     } else if (pagedFiles.isEmpty()) {
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -243,7 +247,7 @@ fun LargeFilesContent(viewModel: LargeFilesViewModel) {
                 val currentPageIds = pagedFiles.map { it.id }
                 val selectedFiles by viewModel.selectedFileIds.collectAsState()
                 val allSelected = currentPageIds.isNotEmpty() && currentPageIds.all { selectedFiles.contains(it) }
-                
+
                 Checkbox(
                     checked = allSelected,
                     onCheckedChange = { viewModel.selectAllInCurrentPage() }
@@ -276,13 +280,13 @@ fun LargeFilesContent(viewModel: LargeFilesViewModel) {
                 ) {
                     Text(stringResource(id = R.string.action_previous))
                 }
-                
+
                 Text(
                     text = stringResource(id = R.string.dup_page_info, currentPage + 1, if (totalPages == 0) 1 else totalPages),
                     style = MaterialTheme.typography.bodyMedium,
                     fontWeight = FontWeight.Bold
                 )
-                
+
                 Button(
                     onClick = { viewModel.nextPage() },
                     enabled = currentPage < totalPages - 1
@@ -304,7 +308,7 @@ fun FileItemRow(file: LargeFileItem, viewModel: LargeFilesViewModel) {
             }
             .build()
     }
-    
+
     val selectedFiles by viewModel.selectedFileIds.collectAsState()
     val isSelected = selectedFiles.contains(file.id)
 
@@ -327,7 +331,7 @@ fun FileItemRow(file: LargeFileItem, viewModel: LargeFilesViewModel) {
                 onCheckedChange = { viewModel.toggleSelection(file.id) }
             )
             Spacer(modifier = Modifier.width(8.dp))
-            
+
             Box(
                 modifier = Modifier
                     .size(64.dp)
@@ -336,7 +340,7 @@ fun FileItemRow(file: LargeFileItem, viewModel: LargeFilesViewModel) {
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
-                    imageVector = Icons.Filled.InsertDriveFile, 
+                    imageVector = Icons.Filled.InsertDriveFile,
                     contentDescription = null,
                     modifier = Modifier.size(32.dp),
                     tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
@@ -376,5 +380,4 @@ fun formatFileSize(size: Long): String {
     val digitGroups = (Math.log10(size.toDouble()) / Math.log10(1024.0)).toInt()
     return DecimalFormat("#,##0.#").format(size / Math.pow(1024.0, digitGroups.toDouble())) + " " + units[digitGroups]
 }
-
 

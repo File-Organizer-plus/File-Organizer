@@ -28,7 +28,7 @@ data class DuplicateFileItem(
 
 class DuplicateFilesViewModel(application: Application) : AndroidViewModel(application) {
     private val _allFiles = MutableStateFlow<List<DuplicateFileItem>>(emptyList())
-    
+
     private val _currentPage = MutableStateFlow(0)
     val currentPage: StateFlow<Int> = _currentPage.asStateFlow()
 
@@ -41,12 +41,15 @@ class DuplicateFilesViewModel(application: Application) : AndroidViewModel(appli
     private val _isLoading = MutableStateFlow(false)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
 
+    private val _searchFailed = MutableStateFlow(false)
+    val searchFailed: StateFlow<Boolean> = _searchFailed.asStateFlow()
+
     private val _progress = MutableStateFlow(0f)
     val progress: StateFlow<Float> = _progress.asStateFlow()
 
     private val _resultMessage = MutableStateFlow<String?>(null)
     val resultMessage: StateFlow<String?> = _resultMessage.asStateFlow()
-    
+
     fun clearResultMessage() {
         _resultMessage.value = null
     }
@@ -60,12 +63,22 @@ class DuplicateFilesViewModel(application: Application) : AndroidViewModel(appli
         viewModelScope.launch {
             _progress.value = 0f
             _isLoading.value = true
-            val duplicates = withContext(Dispatchers.IO) {
-                queryDuplicateFiles()
+            _searchFailed.value = false
+
+            val duplicates = try {
+                withContext(Dispatchers.IO) {
+                    queryDuplicateFiles()
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+                _searchFailed.value = true
+                _progress.value = 0f
+                emptyList()
             }
+
             _allFiles.value = duplicates
             _currentPage.value = 0
-            
+
             // Auto-select verified duplicates for deletion (keep the oldest one unselected)
             val toSelect = mutableSetOf<Long>()
             val groups = duplicates.groupBy { it.contentHash }
@@ -98,7 +111,7 @@ class DuplicateFilesViewModel(application: Application) : AndroidViewModel(appli
         val sortOrder = "${MediaStore.Files.FileColumns.SIZE} DESC"
 
         val context = getApplication<Application>().applicationContext
-        
+
         val urisToQuery = listOf(
             MediaStore.Files.getContentUri("external"),
             MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
@@ -119,48 +132,49 @@ class DuplicateFilesViewModel(application: Application) : AndroidViewModel(appli
                 }
             }
         } catch (e: Exception) {
+            // Counting is only for progress display. A failure here must not make
+            // the actual file search fail.
             e.printStackTrace()
+            totalFiles = 0
         }
 
         var processedFiles = 0
 
-        try {
-            for (collection in urisToQuery) {
-                context.contentResolver.query(
-                    collection,
-                    projection,
-                    selection,
-                    selectionArgs,
-                    sortOrder
-                )?.use { cursor ->
-                    val idColumn = cursor.getColumnIndexOrThrow(MediaStore.Files.FileColumns._ID)
-                    val nameColumn = cursor.getColumnIndexOrThrow(MediaStore.Files.FileColumns.DISPLAY_NAME)
-                    val sizeColumn = cursor.getColumnIndexOrThrow(MediaStore.Files.FileColumns.SIZE)
-                    val dataColumn = cursor.getColumnIndexOrThrow(MediaStore.Files.FileColumns.DATA)
-                    val dateAddedColumn = cursor.getColumnIndexOrThrow(MediaStore.Files.FileColumns.DATE_ADDED)
+        // This is the actual search. Let query/cursor exceptions propagate so the
+        // UI can distinguish a failed search from a successful search with no results.
+        for (collection in urisToQuery) {
+            context.contentResolver.query(
+                collection,
+                projection,
+                selection,
+                selectionArgs,
+                sortOrder
+            )?.use { cursor ->
+                val idColumn = cursor.getColumnIndexOrThrow(MediaStore.Files.FileColumns._ID)
+                val nameColumn = cursor.getColumnIndexOrThrow(MediaStore.Files.FileColumns.DISPLAY_NAME)
+                val sizeColumn = cursor.getColumnIndexOrThrow(MediaStore.Files.FileColumns.SIZE)
+                val dataColumn = cursor.getColumnIndexOrThrow(MediaStore.Files.FileColumns.DATA)
+                val dateAddedColumn = cursor.getColumnIndexOrThrow(MediaStore.Files.FileColumns.DATE_ADDED)
 
-                    while (cursor.moveToNext()) {
-                        val id = cursor.getLong(idColumn)
-                        val name = cursor.getString(nameColumn) ?: "Unknown"
-                        val size = cursor.getLong(sizeColumn)
-                        val data = cursor.getString(dataColumn) ?: ""
-                        val dateAdded = cursor.getLong(dateAddedColumn)
-                        val uri = ContentUris.withAppendedId(collection, id)
+                while (cursor.moveToNext()) {
+                    val id = cursor.getLong(idColumn)
+                    val name = cursor.getString(nameColumn) ?: "Unknown"
+                    val size = cursor.getLong(sizeColumn)
+                    val data = cursor.getString(dataColumn) ?: ""
+                    val dateAdded = cursor.getLong(dateAddedColumn)
+                    val uri = ContentUris.withAppendedId(collection, id)
 
-                        if (fileList.none { it.path == data }) {
-                            fileList.add(DuplicateFileItem(id, name, size, uri, data, dateAdded))
-                        }
-                        
-                        processedFiles++
-                        if (totalFiles > 0 && processedFiles % 50 == 0) {
-                            // Scanning files is the first half of duplicate detection.
-                            _progress.value = (processedFiles.toFloat() / totalFiles.toFloat()) * 0.5f
-                        }
+                    if (fileList.none { it.path == data }) {
+                        fileList.add(DuplicateFileItem(id, name, size, uri, data, dateAdded))
+                    }
+
+                    processedFiles++
+                    if (totalFiles > 0 && processedFiles % 50 == 0) {
+                        // Scanning files is the first half of duplicate detection.
+                        _progress.value = (processedFiles.toFloat() / totalFiles.toFloat()) * 0.5f
                     }
                 }
             }
-        } catch (e: Exception) {
-            e.printStackTrace()
         }
 
         // Size is only a fast pre-filter. Files are considered duplicates only when
@@ -174,6 +188,8 @@ class DuplicateFilesViewModel(application: Application) : AndroidViewModel(appli
             val filesByHash = mutableMapOf<String, MutableList<DuplicateFileItem>>()
 
             for (item in group) {
+                // A single unreadable file is skipped; it does not mean the storage
+                // search itself failed.
                 val hash = calculateSha256(item)
                 if (hash != null) {
                     filesByHash.getOrPut(hash) { mutableListOf() }
@@ -363,7 +379,7 @@ class DuplicateFilesViewModel(application: Application) : AndroidViewModel(appli
 
             clearSelection()
             loadFiles()
-            
+
             if (permissionDenied && successCount == 0) {
                 _resultMessage.value = permissionFailMsg
             } else if (successCount > 0) {

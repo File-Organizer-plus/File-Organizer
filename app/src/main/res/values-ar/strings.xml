@@ -63,6 +63,7 @@ https://play.google.com/store/apps/details?id=fileorganizer.app</string>
     <string name="action_up">أعلى</string>
     <string name="action_down">أسفل</string>
     <string name="action_remove">إزالة</string>
+    <string name="search_failed">تعذر البحث عن الملفات. حاول مرة أخرى.</string>
     
     <!-- Video Compressor -->
     <string name="vc_success">تم بنجاح! تم حفظ الفيديو في مجلد Movies/FileKit.</string>
