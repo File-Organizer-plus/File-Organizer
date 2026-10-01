@@ -13,6 +13,8 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
+import java.io.FileInputStream
+import java.security.MessageDigest
 
 data class DuplicateFileItem(
     val id: Long,
@@ -20,7 +22,8 @@ data class DuplicateFileItem(
     val size: Long,
     val uri: Uri,
     val path: String,
-    val dateAdded: Long
+    val dateAdded: Long,
+    val contentHash: String = ""
 )
 
 class DuplicateFilesViewModel(application: Application) : AndroidViewModel(application) {
@@ -63,15 +66,12 @@ class DuplicateFilesViewModel(application: Application) : AndroidViewModel(appli
             _allFiles.value = duplicates
             _currentPage.value = 0
             
-            // Auto-select duplicates for deletion (keep the oldest one unselected)
+            // Auto-select verified duplicates for deletion (keep the oldest one unselected)
             val toSelect = mutableSetOf<Long>()
-            // group by size and name again to find which to select
-            val groups = duplicates.groupBy { "${it.size}_${getBaseName(it.name)}" }
+            val groups = duplicates.groupBy { it.contentHash }
             for (group in groups.values) {
-                // sort by date added, oldest first
                 val sorted = group.sortedBy { it.dateAdded }
                 if (sorted.size > 1) {
-                    // add all except the first (oldest) to the selection
                     sorted.drop(1).forEach { toSelect.add(it.id) }
                 }
             }
@@ -152,28 +152,94 @@ class DuplicateFilesViewModel(application: Application) : AndroidViewModel(appli
                         }
                         
                         processedFiles++
-                        if (totalFiles > 0 && processedFiles % 50 == 0) { // Update every 50 items to reduce overhead
-                            _progress.value = processedFiles.toFloat() / totalFiles.toFloat()
+                        if (totalFiles > 0 && processedFiles % 50 == 0) {
+                            // Scanning files is the first half of duplicate detection.
+                            _progress.value = (processedFiles.toFloat() / totalFiles.toFloat()) * 0.5f
                         }
                     }
                 }
             }
-            if (totalFiles > 0) _progress.value = 1f
         } catch (e: Exception) {
             e.printStackTrace()
         }
-        
-        // Group by size and base name (ignoring common duplicate suffixes like " (1)" or "-1")
-        val grouped = fileList.groupBy { "${it.size}_${getBaseName(it.name)}" }
-        // Filter to only groups that have more than 1 file
-        val duplicates = grouped.filter { it.value.size > 1 }.values.flatten()
-        
-        // Sort by size descending, then by name so duplicates are next to each other
-        return duplicates.sortedWith(compareByDescending<DuplicateFileItem> { it.size }.thenBy { it.name })
+
+        // Size is only a fast pre-filter. Files are considered duplicates only when
+        // their SHA-256 content hash also matches.
+        val candidateGroups = fileList.groupBy { it.size }.values.filter { it.size > 1 }
+        val candidateCount = candidateGroups.sumOf { it.size }
+        var hashedFiles = 0
+        val verifiedDuplicates = mutableListOf<DuplicateFileItem>()
+
+        for (group in candidateGroups) {
+            val filesByHash = mutableMapOf<String, MutableList<DuplicateFileItem>>()
+
+            for (item in group) {
+                val hash = calculateSha256(item)
+                if (hash != null) {
+                    filesByHash.getOrPut(hash) { mutableListOf() }
+                        .add(item.copy(contentHash = hash))
+                }
+
+                hashedFiles++
+                if (candidateCount > 0) {
+                    _progress.value = 0.5f + (hashedFiles.toFloat() / candidateCount.toFloat()) * 0.5f
+                }
+            }
+
+            filesByHash.values
+                .filter { it.size > 1 }
+                .forEach { verifiedDuplicates.addAll(it) }
+        }
+
+        _progress.value = 1f
+
+        // Sort by size descending, then by content hash and name so each verified
+        // duplicate group stays together in the list.
+        return verifiedDuplicates.sortedWith(
+            compareByDescending<DuplicateFileItem> { it.size }
+                .thenBy { it.contentHash }
+                .thenBy { it.name }
+        )
     }
 
-    private fun getBaseName(name: String): String {
-        return name.replace(Regex("""(?: \(\d+\)|-\d+)(?=\.[^.]+$|$)"""), "")
+    private fun calculateSha256(item: DuplicateFileItem): String? {
+        val context = getApplication<Application>().applicationContext
+
+        return try {
+            val digest = MessageDigest.getInstance("SHA-256")
+            val inputStream = try {
+                context.contentResolver.openInputStream(item.uri)
+            } catch (e: Exception) {
+                null
+            }
+
+            if (inputStream != null) {
+                inputStream.use { input ->
+                    val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
+                    while (true) {
+                        val read = input.read(buffer)
+                        if (read <= 0) break
+                        digest.update(buffer, 0, read)
+                    }
+                }
+            } else if (item.path.isNotBlank()) {
+                FileInputStream(item.path).use { input ->
+                    val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
+                    while (true) {
+                        val read = input.read(buffer)
+                        if (read <= 0) break
+                        digest.update(buffer, 0, read)
+                    }
+                }
+            } else {
+                return null
+            }
+
+            digest.digest().joinToString("") { byte -> "%02x".format(byte) }
+        } catch (e: Exception) {
+            e.printStackTrace()
+            null
+        }
     }
 
     fun nextPage() {
