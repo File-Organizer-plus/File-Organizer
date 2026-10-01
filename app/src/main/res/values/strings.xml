@@ -64,6 +64,7 @@ https://play.google.com/store/apps/details?id=fileorganizer.app</string>
     <string name="action_up">Up</string>
     <string name="action_down">Down</string>
     <string name="action_remove">Remove</string>
+    <string name="search_failed">Unable to search files. Please try again.</string>
     
     <!-- Video Compressor -->
     <string name="vc_success">Success! Video saved in Movies/FileKit.</string>
