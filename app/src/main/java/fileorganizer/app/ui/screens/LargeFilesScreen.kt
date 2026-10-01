@@ -36,7 +36,6 @@ import java.io.File
 import fileorganizer.app.R
 import java.text.DecimalFormat
 
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun LargeFilesScreen(
@@ -45,7 +44,6 @@ fun LargeFilesScreen(
 ) {
     val context = LocalContext.current
 
-    // Check initial permission state
     var hasPermission by remember {
         mutableStateOf(
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
@@ -79,6 +77,7 @@ fun LargeFilesScreen(
     }
 
     val selectedFiles by viewModel.selectedFileIds.collectAsState()
+    val isBusy by viewModel.isBusy.collectAsState()
     var showDeleteDialog by remember { mutableStateOf(false) }
 
     Scaffold(
@@ -91,11 +90,17 @@ fun LargeFilesScreen(
                     }
                 },
                 actions = {
-                    IconButton(onClick = { viewModel.loadFiles() }) {
+                    IconButton(
+                        onClick = { viewModel.loadFiles() },
+                        enabled = !isBusy
+                    ) {
                         Icon(Icons.Filled.Refresh, contentDescription = stringResource(id = R.string.action_refresh))
                     }
                     if (selectedFiles.isNotEmpty()) {
-                        IconButton(onClick = { showDeleteDialog = true }) {
+                        IconButton(
+                            onClick = { showDeleteDialog = true },
+                            enabled = !isBusy
+                        ) {
                             Icon(Icons.Filled.Delete, contentDescription = stringResource(id = R.string.action_delete), tint = MaterialTheme.colorScheme.error)
                         }
                     }
@@ -144,7 +149,7 @@ fun LargeFilesScreen(
 
         if (showDeleteDialog) {
             AlertDialog(
-                onDismissRequest = { showDeleteDialog = false },
+                onDismissRequest = { if (!isBusy) showDeleteDialog = false },
                 title = { Text(stringResource(id = R.string.dup_delete_dialog_title)) },
                 text = { Text(stringResource(id = R.string.dup_delete_dialog_msg, selectedFiles.size)) },
                 confirmButton = {
@@ -152,6 +157,7 @@ fun LargeFilesScreen(
                     val failMsg = stringResource(id = R.string.dup_delete_fail)
                     val permissionFailMsg = stringResource(id = R.string.dup_permission_fail)
                     TextButton(
+                        enabled = !isBusy,
                         onClick = {
                             showDeleteDialog = false
                             fileorganizer.app.utils.AdHelper.showInterstitialAd(context) {
@@ -163,7 +169,10 @@ fun LargeFilesScreen(
                     }
                 },
                 dismissButton = {
-                    TextButton(onClick = { showDeleteDialog = false }) {
+                    TextButton(
+                        enabled = !isBusy,
+                        onClick = { showDeleteDialog = false }
+                    ) {
                         Text(stringResource(id = R.string.action_cancel))
                     }
                 }
@@ -246,10 +255,12 @@ fun LargeFilesContent(viewModel: LargeFilesViewModel) {
             ) {
                 val currentPageIds = pagedFiles.map { it.id }
                 val selectedFiles by viewModel.selectedFileIds.collectAsState()
+                val isBusy by viewModel.isBusy.collectAsState()
                 val allSelected = currentPageIds.isNotEmpty() && currentPageIds.all { selectedFiles.contains(it) }
 
                 Checkbox(
                     checked = allSelected,
+                    enabled = !isBusy,
                     onCheckedChange = { viewModel.selectAllInCurrentPage() }
                 )
                 Spacer(modifier = Modifier.width(8.dp))
@@ -266,7 +277,6 @@ fun LargeFilesContent(viewModel: LargeFilesViewModel) {
                 }
             }
 
-            // Pagination Controls
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -310,6 +320,7 @@ fun FileItemRow(file: LargeFileItem, viewModel: LargeFilesViewModel) {
     }
 
     val selectedFiles by viewModel.selectedFileIds.collectAsState()
+    val isBusy by viewModel.isBusy.collectAsState()
     val isSelected = selectedFiles.contains(file.id)
 
     Card(
@@ -328,6 +339,7 @@ fun FileItemRow(file: LargeFileItem, viewModel: LargeFilesViewModel) {
         ) {
             Checkbox(
                 checked = isSelected,
+                enabled = !isBusy,
                 onCheckedChange = { viewModel.toggleSelection(file.id) }
             )
             Spacer(modifier = Modifier.width(8.dp))
@@ -380,4 +392,3 @@ fun formatFileSize(size: Long): String {
     val digitGroups = (Math.log10(size.toDouble()) / Math.log10(1024.0)).toInt()
     return DecimalFormat("#,##0.#").format(size / Math.pow(1024.0, digitGroups.toDouble())) + " " + units[digitGroups]
 }
-
