@@ -172,32 +172,25 @@ class LargeFilesViewModel(application: Application) : AndroidViewModel(applicati
         _selectedFileIds.value = currentSelected
     }
 
+    private data class DeleteAttemptResult(
+        val deleted: Boolean,
+        val permissionDenied: Boolean
+    )
+
     fun deleteSelectedFiles(successMsg: String, failMsg: String, permissionFailMsg: String) {
         viewModelScope.launch {
             val selected = _selectedFileIds.value
             if (selected.isEmpty()) return@launch
 
             val filesToDelete = _allFiles.value.filter { it.id in selected }
-            val context = getApplication<Application>().applicationContext
             var successCount = 0
             var permissionDenied = false
 
             withContext(Dispatchers.IO) {
                 filesToDelete.forEach { fileItem ->
-                    try {
-                        val file = File(fileItem.path)
-                        if (file.exists()) {
-                            file.delete()
-                        }
-                        // Also remove from MediaStore
-                        context.contentResolver.delete(fileItem.uri, null, null)
-                        successCount++
-                    } catch (e: SecurityException) {
-                        e.printStackTrace()
-                        permissionDenied = true
-                    } catch (e: Exception) {
-                        e.printStackTrace()
-                    }
+                    val result = deleteFileAndConfirm(fileItem)
+                    if (result.deleted) successCount++
+                    if (result.permissionDenied) permissionDenied = true
                 }
             }
 
@@ -213,5 +206,56 @@ class LargeFilesViewModel(application: Application) : AndroidViewModel(applicati
             }
         }
     }
-}
 
+    private fun deleteFileAndConfirm(fileItem: LargeFileItem): DeleteAttemptResult {
+        val context = getApplication<Application>().applicationContext
+        val file = fileItem.path.takeIf { it.isNotBlank() }?.let(::File)
+        val existedOnDiskBefore = file?.exists() == true
+        var permissionDenied = false
+
+        try {
+            context.contentResolver.delete(fileItem.uri, null, null)
+        } catch (e: SecurityException) {
+            e.printStackTrace()
+            permissionDenied = true
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+
+        if (file != null && file.exists()) {
+            try {
+                file.delete()
+            } catch (e: SecurityException) {
+                e.printStackTrace()
+                permissionDenied = true
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+
+        val confirmedDeleted = if (existedOnDiskBefore) {
+            file?.exists() == false
+        } else {
+            isUriUnavailable(fileItem.uri)
+        }
+
+        return DeleteAttemptResult(
+            deleted = confirmedDeleted,
+            permissionDenied = permissionDenied && !confirmedDeleted
+        )
+    }
+
+    private fun isUriUnavailable(uri: Uri): Boolean {
+        val context = getApplication<Application>().applicationContext
+        return try {
+            context.contentResolver.openFileDescriptor(uri, "r")?.use { false } ?: true
+        } catch (e: java.io.FileNotFoundException) {
+            true
+        } catch (e: SecurityException) {
+            false
+        } catch (e: Exception) {
+            e.printStackTrace()
+            false
+        }
+    }
+}
