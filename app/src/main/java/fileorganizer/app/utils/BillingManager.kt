@@ -335,6 +335,7 @@ object BillingManager {
         val premiumActive = completedPurchases.isNotEmpty()
         updatePremiumState(premiumActive)
         _entitlementReady.value = true
+        appContext?.let { AdHelper.syncForEntitlement(it) }
 
         completedPurchases.forEach { purchase ->
             if (!purchase.isAcknowledged) {
