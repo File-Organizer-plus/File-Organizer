@@ -46,27 +46,95 @@ class PdfToolsViewModel(application: Application) : AndroidViewModel(application
 
         viewModelScope.launch {
             val result = withContext(Dispatchers.IO) {
+                val context = getApplication<Application>()
+                val tempFiles = mutableListOf<File>()
+                var outputUri: Uri? = null
+
                 try {
-                    val context = getApplication<Application>()
                     val merger = PDFMergerUtility()
+                    var expectedPageCount = 0
+
+                    // Copy and validate every selected PDF before creating the output.
+                    // If one input cannot be opened or parsed, stop the whole merge
+                    // instead of silently skipping it and producing an incomplete file.
+                    uris.forEachIndexed { index, uri ->
+                        val inputStream = context.contentResolver.openInputStream(uri)
+                            ?: throw IllegalStateException("Unable to open PDF ${index + 1}")
+
+                        val tempFile = File.createTempFile("merge_pdf_${index}_", ".pdf", context.cacheDir)
+                        tempFiles.add(tempFile)
+
+                        inputStream.use { input ->
+                            tempFile.outputStream().use { output ->
+                                input.copyTo(output)
+                            }
+                        }
+
+                        PDDocument.load(tempFile).use { document ->
+                            if (document.numberOfPages <= 0) {
+                                throw IllegalStateException("PDF ${index + 1} has no pages")
+                            }
+                            expectedPageCount += document.numberOfPages
+                        }
+
+                        merger.addSource(tempFile)
+                    }
+
                     val fileName = "Merged_PDF_${System.currentTimeMillis()}.pdf"
-                    val (outputStream, _) = fileorganizer.app.utils.StorageUtils.createPdfOutputStream(context, fileName)
+                    val (outputStream, createdUri) = fileorganizer.app.utils.StorageUtils.createPdfOutputStream(context, fileName)
+                    outputUri = createdUri
                     merger.destinationStream = outputStream
 
-                    uris.forEach { uri ->
-                        val inputStream = context.contentResolver.openInputStream(uri)
-                        if (inputStream != null) {
-                            merger.addSource(inputStream)
+                    outputStream.use { output ->
+                        merger.mergeDocuments(com.tom_roush.pdfbox.io.MemoryUsageSetting.setupMainMemoryOnly())
+                        output.flush()
+                    }
+
+                    // Reopen the saved file and verify that it is a readable PDF with
+                    // exactly the total number of pages from all selected inputs.
+                    val savedInput = outputUri?.let { uri ->
+                        if (uri.scheme == "file") {
+                            uri.path?.let { File(it).inputStream() }
+                        } else {
+                            context.contentResolver.openInputStream(uri)
+                        }
+                    } ?: throw IllegalStateException("Merged PDF could not be reopened")
+
+                    savedInput.use { savedStream ->
+                        PDDocument.load(savedStream).use { savedDocument ->
+                            if (savedDocument.numberOfPages != expectedPageCount) {
+                                throw IllegalStateException("Merged PDF page count does not match")
+                            }
                         }
                     }
 
-                    merger.mergeDocuments(com.tom_roush.pdfbox.io.MemoryUsageSetting.setupMainMemoryOnly())
-                    outputStream.flush()
-                    outputStream.close()
                     successMsg.replace("%1\$s", fileName)
                 } catch (t: Throwable) {
                     t.printStackTrace()
+
+                    // Remove an incomplete output when possible so a failed merge does
+                    // not leave behind a file that looks valid to the user.
+                    outputUri?.let { uri ->
+                        try {
+                            if (uri.scheme == "file") {
+                                uri.path?.let { File(it).delete() }
+                            } else {
+                                context.contentResolver.delete(uri, null, null)
+                            }
+                        } catch (cleanupError: Throwable) {
+                            cleanupError.printStackTrace()
+                        }
+                    }
+
                     failMsg.replace("%1\$s", t.message ?: "")
+                } finally {
+                    tempFiles.forEach { tempFile ->
+                        try {
+                            tempFile.delete()
+                        } catch (cleanupError: Throwable) {
+                            cleanupError.printStackTrace()
+                        }
+                    }
                 }
             }
             _isLoading.value = false
