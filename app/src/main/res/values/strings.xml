@@ -28,6 +28,17 @@
     <string name="sub_best_value">Best Value</string>
     <string name="sub_subscribe_btn">Subscribe Now</string>
     <string name="sub_restore_btn">Restore Purchases</string>
+    <string name="sub_price_loading">Loading price...</string>
+    <string name="sub_plan_unavailable">Currently unavailable</string>
+    <string name="sub_premium_active">Premium is active. Ads are disabled.</string>
+    <string name="sub_active_btn">Premium Active</string>
+    <string name="sub_purchase_success">Subscription activated successfully. Premium is now active.</string>
+    <string name="sub_purchase_pending">Your purchase is pending. Premium will activate after Google Play confirms payment.</string>
+    <string name="sub_restore_success">Your Premium subscription has been restored.</string>
+    <string name="sub_restore_none">No active Premium subscription was found for this Google Play account.</string>
+    <string name="sub_product_unavailable">Premium plans are not available right now. Please try again later.</string>
+    <string name="sub_billing_unavailable">Google Play Billing is currently unavailable. Please try again.</string>
+    <string name="sub_purchase_error">The purchase could not be completed. Please try again.</string>
     <string name="settings_storage_section">Storage</string>
     <string name="settings_clear_cache">Clear Cache</string>
     <string name="settings_cache_cleared">Cache cleared successfully</string>
