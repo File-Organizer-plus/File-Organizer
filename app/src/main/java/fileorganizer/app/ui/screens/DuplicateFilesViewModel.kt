@@ -280,31 +280,83 @@ class DuplicateFilesViewModel(application: Application) : AndroidViewModel(appli
         _selectedFileIds.value = emptySet()
     }
 
+    private data class DeleteAttemptResult(
+        val deleted: Boolean,
+        val permissionDenied: Boolean
+    )
+
+    private fun deleteFileAndConfirm(fileItem: DuplicateFileItem): DeleteAttemptResult {
+        val context = getApplication<Application>().applicationContext
+        val file = fileItem.path.takeIf { it.isNotBlank() }?.let(::File)
+        val existedOnDiskBefore = file?.exists() == true
+        var permissionDenied = false
+
+        try {
+            context.contentResolver.delete(fileItem.uri, null, null)
+        } catch (e: SecurityException) {
+            e.printStackTrace()
+            permissionDenied = true
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+
+        // Fallback for devices/storage locations where deleting through MediaStore
+        // does not remove the underlying file itself.
+        if (file != null && file.exists()) {
+            try {
+                file.delete()
+            } catch (e: SecurityException) {
+                e.printStackTrace()
+                permissionDenied = true
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+
+        // Do not trust delete() return paths alone. Confirm the file is really gone.
+        val confirmedDeleted = if (existedOnDiskBefore) {
+            file?.exists() == false
+        } else {
+            isUriUnavailable(fileItem.uri)
+        }
+
+        return DeleteAttemptResult(
+            deleted = confirmedDeleted,
+            permissionDenied = permissionDenied && !confirmedDeleted
+        )
+    }
+
+    private fun isUriUnavailable(uri: Uri): Boolean {
+        val context = getApplication<Application>().applicationContext
+        return try {
+            context.contentResolver.openFileDescriptor(uri, "r")?.use { false } ?: true
+        } catch (e: java.io.FileNotFoundException) {
+            true
+        } catch (e: SecurityException) {
+            false
+        } catch (e: Exception) {
+            e.printStackTrace()
+            false
+        }
+    }
+
     fun deleteSelectedFiles(successMsg: String, failMsg: String, permissionFailMsg: String) {
         viewModelScope.launch {
             val selected = _selectedFileIds.value
             if (selected.isEmpty()) return@launch
 
             val filesToDelete = _allFiles.value.filter { it.id in selected }
-            val context = getApplication<Application>().applicationContext
             var successCount = 0
             var permissionDenied = false
 
             withContext(Dispatchers.IO) {
                 filesToDelete.forEach { fileItem ->
-                    try {
-                        val file = File(fileItem.path)
-                        if (file.exists()) {
-                            file.delete()
-                        }
-                        // Also remove from MediaStore
-                        context.contentResolver.delete(fileItem.uri, null, null)
+                    val result = deleteFileAndConfirm(fileItem)
+                    if (result.deleted) {
                         successCount++
-                    } catch (e: SecurityException) {
-                        e.printStackTrace()
+                    }
+                    if (result.permissionDenied) {
                         permissionDenied = true
-                    } catch (e: Exception) {
-                        e.printStackTrace()
                     }
                 }
             }
