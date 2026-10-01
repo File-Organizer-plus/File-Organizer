@@ -8,6 +8,7 @@ import com.tom_roush.pdfbox.android.PDFBoxResourceLoader
 import com.tom_roush.pdfbox.multipdf.PDFMergerUtility
 import com.tom_roush.pdfbox.pdmodel.PDDocument
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -90,22 +91,11 @@ class PdfToolsViewModel(application: Application) : AndroidViewModel(application
                         output.flush()
                     }
 
-                    // Reopen the saved file and verify that it is a readable PDF with
-                    // exactly the total number of pages from all selected inputs.
-                    val savedInput = outputUri?.let { uri ->
-                        if (uri.scheme == "file") {
-                            uri.path?.let { File(it).inputStream() }
-                        } else {
-                            context.contentResolver.openInputStream(uri)
-                        }
-                    } ?: throw IllegalStateException("Merged PDF could not be reopened")
+                    val savedUri = outputUri
+                        ?: throw IllegalStateException("Merged PDF could not be reopened")
 
-                    savedInput.use { savedStream ->
-                        PDDocument.load(savedStream).use { savedDocument ->
-                            if (savedDocument.numberOfPages != expectedPageCount) {
-                                throw IllegalStateException("Merged PDF page count does not match")
-                            }
-                        }
+                    if (!verifySavedPdfWithRetry(context, savedUri, expectedPageCount)) {
+                        throw IllegalStateException("Merged PDF page count does not match")
                     }
 
                     successMsg.replace("%1\$s", fileName)
@@ -189,7 +179,8 @@ class PdfToolsViewModel(application: Application) : AndroidViewModel(application
                             document.removePage(pageNumber - 1)
                         }
 
-                        if (document.numberOfPages != totalPages - pagesToRemove.size) {
+                        val expectedPageCount = totalPages - pagesToRemove.size
+                        if (document.numberOfPages != expectedPageCount) {
                             throw IllegalStateException("PDF page deletion could not be verified")
                         }
 
@@ -200,17 +191,11 @@ class PdfToolsViewModel(application: Application) : AndroidViewModel(application
                             output.flush()
                         }
 
-                        // Verify that the saved PDF can actually be opened and contains
-                        // the expected number of pages before reporting success.
-                        val savedInput = outputUri?.let { context.contentResolver.openInputStream(it) }
+                        val savedUri = outputUri
                             ?: throw IllegalStateException("Saved PDF could not be reopened")
 
-                        savedInput.use { savedStream ->
-                            PDDocument.load(savedStream).use { savedDocument ->
-                                if (savedDocument.numberOfPages != totalPages - pagesToRemove.size) {
-                                    throw IllegalStateException("Saved PDF page count does not match")
-                                }
-                            }
+                        if (!verifySavedPdfWithRetry(context, savedUri, expectedPageCount)) {
+                            throw IllegalStateException("Saved PDF page count does not match")
                         }
 
                         successMsg.replace("%1\$s", fileName)
@@ -224,6 +209,44 @@ class PdfToolsViewModel(application: Application) : AndroidViewModel(application
             }
             _isLoading.value = false
             _resultMessage.value = result
+        }
+    }
+
+    private suspend fun verifySavedPdfWithRetry(
+        context: Application,
+        uri: Uri,
+        expectedPageCount: Int
+    ): Boolean {
+        if (verifySavedPdfOnce(context, uri, expectedPageCount)) {
+            return true
+        }
+
+        // Only wait when the first verification fails. Normal successful saves
+        // have no added delay.
+        delay(100)
+        return verifySavedPdfOnce(context, uri, expectedPageCount)
+    }
+
+    private fun verifySavedPdfOnce(
+        context: Application,
+        uri: Uri,
+        expectedPageCount: Int
+    ): Boolean {
+        return try {
+            val savedInput = if (uri.scheme == "file") {
+                uri.path?.let { File(it).inputStream() }
+            } else {
+                context.contentResolver.openInputStream(uri)
+            } ?: return false
+
+            savedInput.use { savedStream ->
+                PDDocument.load(savedStream).use { savedDocument ->
+                    savedDocument.numberOfPages == expectedPageCount
+                }
+            }
+        } catch (t: Throwable) {
+            t.printStackTrace()
+            false
         }
     }
 
