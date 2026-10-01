@@ -17,7 +17,6 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import fileorganizer.app.ui.navigation.AppNavigation
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.asStateFlow
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.unit.LayoutDirection
@@ -45,12 +44,22 @@ class MainActivity : ComponentActivity() {
     } catch (e: Exception) {
       e.printStackTrace()
     }
+
+    // Initialize Billing before ads. AdHelper waits for a verified entitlement
+    // before it can load/show an interstitial, so Premium users never see one
+    // while Google Play is still checking their subscription.
     try {
-      com.google.android.gms.ads.MobileAds.initialize(this) {}
-      fileorganizer.app.utils.AdHelper.loadInterstitialAd(this)
+      fileorganizer.app.utils.BillingManager.initialize(applicationContext)
     } catch (e: Exception) {
       e.printStackTrace()
     }
+
+    try {
+      com.google.android.gms.ads.MobileAds.initialize(this) {}
+    } catch (e: Exception) {
+      e.printStackTrace()
+    }
+
     handleIntent(intent)
 
     val prefs = getSharedPreferences("Settings", android.content.Context.MODE_PRIVATE)
@@ -96,6 +105,17 @@ class MainActivity : ComponentActivity() {
           } 
         }
       }
+    }
+  }
+
+  override fun onResume() {
+    super.onResume()
+    // Re-check entitlement after returning from Play, account changes, renewals,
+    // cancellations, grace periods, or a purchase flow.
+    try {
+      fileorganizer.app.utils.BillingManager.refreshPurchases()
+    } catch (e: Exception) {
+      e.printStackTrace()
     }
   }
 

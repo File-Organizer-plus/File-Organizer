@@ -14,16 +14,33 @@ object AdHelper {
     private const val TAG = "AdHelper"
     // Test Interstitial Ad Unit ID provided by Google
     private const val AD_UNIT_ID = "ca-app-pub-5529222451841351/3631189983"
-    
+
     private var mInterstitialAd: InterstitialAd? = null
     private var isAdLoading = false
 
+    /**
+     * Keep ad state aligned with the latest verified Premium entitlement.
+     * Ads stay disabled while entitlement is still unknown, preventing a Premium
+     * user from briefly seeing an ad while Google Play Billing is reconnecting.
+     */
+    fun syncForEntitlement(context: Context) {
+        if (!BillingManager.entitlementReady.value || BillingManager.isPremium.value) {
+            clearInterstitialAd()
+            return
+        }
+        loadInterstitialAd(context)
+    }
+
     fun loadInterstitialAd(context: Context) {
+        if (!BillingManager.entitlementReady.value || BillingManager.isPremium.value) {
+            clearInterstitialAd()
+            return
+        }
         if (mInterstitialAd != null || isAdLoading) return
 
         isAdLoading = true
         val adRequest = AdRequest.Builder().build()
-        
+
         InterstitialAd.load(
             context,
             AD_UNIT_ID,
@@ -36,22 +53,33 @@ object AdHelper {
                 }
 
                 override fun onAdLoaded(interstitialAd: InterstitialAd) {
+                    isAdLoading = false
+                    if (!BillingManager.entitlementReady.value || BillingManager.isPremium.value) {
+                        // Entitlement may have changed while the ad was loading.
+                        mInterstitialAd = null
+                        return
+                    }
                     Log.d(TAG, "Ad was loaded.")
                     mInterstitialAd = interstitialAd
-                    isAdLoading = false
                 }
             }
         )
     }
 
     fun showInterstitialAd(context: Context, onAdDismissed: () -> Unit) {
+        // Premium users (and users whose entitlement has not been verified yet)
+        // continue directly without loading or displaying an ad.
+        if (!BillingManager.entitlementReady.value || BillingManager.isPremium.value) {
+            onAdDismissed()
+            return
+        }
+
         val activity = findActivity(context)
         if (activity != null && mInterstitialAd != null) {
             mInterstitialAd?.fullScreenContentCallback = object : FullScreenContentCallback() {
                 override fun onAdDismissedFullScreenContent() {
                     Log.d(TAG, "Ad dismissed fullscreen content.")
                     mInterstitialAd = null
-                    // Load the next ad immediately after this one is dismissed
                     loadInterstitialAd(activity)
                     onAdDismissed()
                 }
@@ -59,6 +87,7 @@ object AdHelper {
                 override fun onAdFailedToShowFullScreenContent(adError: AdError) {
                     Log.e(TAG, "Ad failed to show fullscreen content.")
                     mInterstitialAd = null
+                    loadInterstitialAd(activity)
                     onAdDismissed()
                 }
 
@@ -74,6 +103,11 @@ object AdHelper {
             }
             onAdDismissed()
         }
+    }
+
+    private fun clearInterstitialAd() {
+        mInterstitialAd = null
+        isAdLoading = false
     }
 
     private fun findActivity(context: Context): Activity? {

@@ -28,6 +28,17 @@
     <string name="sub_best_value">أفضل سعر</string>
     <string name="sub_subscribe_btn">اشترك الآن</string>
     <string name="sub_restore_btn">استعادة المشتريات</string>
+    <string name="sub_price_loading">جاري تحميل السعر...</string>
+    <string name="sub_plan_unavailable">غير متاح حاليًا</string>
+    <string name="sub_premium_active">اشتراك Premium فعال. تم إيقاف الإعلانات.</string>
+    <string name="sub_active_btn">Premium فعال</string>
+    <string name="sub_purchase_success">تم تفعيل الاشتراك بنجاح. Premium فعال الآن.</string>
+    <string name="sub_purchase_pending">عملية الشراء قيد الانتظار. سيتم تفعيل Premium بعد تأكيد الدفع من Google Play.</string>
+    <string name="sub_restore_success">تمت استعادة اشتراك Premium بنجاح.</string>
+    <string name="sub_restore_none">لم يتم العثور على اشتراك Premium فعال في حساب Google Play هذا.</string>
+    <string name="sub_product_unavailable">باقات Premium غير متاحة حاليًا. حاول مرة أخرى لاحقًا.</string>
+    <string name="sub_billing_unavailable">خدمة الدفع في Google Play غير متاحة حاليًا. حاول مرة أخرى.</string>
+    <string name="sub_purchase_error">تعذر إكمال عملية الشراء. حاول مرة أخرى.</string>
     <string name="settings_clear_cache">تنظيف الذاكرة المؤقتة</string>
     <string name="settings_cache_cleared">تم تنظيف الذاكرة المؤقتة بنجاح</string>
     <string name="settings_general_section">عام</string>
@@ -150,4 +161,3 @@ https://play.google.com/store/apps/details?id=fileorganizer.app</string>
     <string name="action_next">التالي</string>
     <string name="action_select_all_page">تحديد الكل في هذه الصفحة</string>
 </resources>
-
