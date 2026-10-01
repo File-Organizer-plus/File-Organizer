@@ -45,7 +45,6 @@ fun DuplicateFilesScreen(
 ) {
     val context = LocalContext.current
 
-    // Check initial permission state
     var hasPermission by remember {
         mutableStateOf(
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
@@ -79,6 +78,7 @@ fun DuplicateFilesScreen(
     }
 
     val selectedFiles by viewModel.selectedFileIds.collectAsState()
+    val isBusy by viewModel.isBusy.collectAsState()
     var showDeleteDialog by remember { mutableStateOf(false) }
 
     Scaffold(
@@ -91,11 +91,17 @@ fun DuplicateFilesScreen(
                     }
                 },
                 actions = {
-                    IconButton(onClick = { viewModel.loadFiles() }) {
+                    IconButton(
+                        onClick = { viewModel.loadFiles() },
+                        enabled = !isBusy
+                    ) {
                         Icon(Icons.Filled.Refresh, contentDescription = stringResource(id = R.string.action_refresh))
                     }
                     if (selectedFiles.isNotEmpty()) {
-                        IconButton(onClick = { showDeleteDialog = true }) {
+                        IconButton(
+                            onClick = { showDeleteDialog = true },
+                            enabled = !isBusy
+                        ) {
                             Icon(Icons.Filled.Delete, contentDescription = stringResource(id = R.string.action_delete), tint = MaterialTheme.colorScheme.error)
                         }
                     }
@@ -144,7 +150,7 @@ fun DuplicateFilesScreen(
 
         if (showDeleteDialog) {
             AlertDialog(
-                onDismissRequest = { showDeleteDialog = false },
+                onDismissRequest = { if (!isBusy) showDeleteDialog = false },
                 title = { Text(stringResource(id = R.string.dup_delete_dialog_title)) },
                 text = { Text(stringResource(id = R.string.dup_delete_dialog_msg, selectedFiles.size)) },
                 confirmButton = {
@@ -152,6 +158,7 @@ fun DuplicateFilesScreen(
                     val failMsg = stringResource(id = R.string.dup_delete_fail)
                     val permissionFailMsg = stringResource(id = R.string.dup_permission_fail)
                     TextButton(
+                        enabled = !isBusy,
                         onClick = {
                             showDeleteDialog = false
                             fileorganizer.app.utils.AdHelper.showInterstitialAd(context) {
@@ -163,7 +170,10 @@ fun DuplicateFilesScreen(
                     }
                 },
                 dismissButton = {
-                    TextButton(onClick = { showDeleteDialog = false }) {
+                    TextButton(
+                        enabled = !isBusy,
+                        onClick = { showDeleteDialog = false }
+                    ) {
                         Text(stringResource(id = R.string.action_cancel))
                     }
                 }
@@ -226,7 +236,6 @@ fun DuplicateFilesContent(viewModel: DuplicateFilesViewModel) {
                 }
             }
 
-            // Pagination Controls
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -270,6 +279,7 @@ fun DuplicateFileItemRow(file: DuplicateFileItem, viewModel: DuplicateFilesViewM
     }
 
     val selectedFiles by viewModel.selectedFileIds.collectAsState()
+    val isBusy by viewModel.isBusy.collectAsState()
     val isSelected = selectedFiles.contains(file.id)
 
     Card(
@@ -288,6 +298,7 @@ fun DuplicateFileItemRow(file: DuplicateFileItem, viewModel: DuplicateFilesViewM
         ) {
             Checkbox(
                 checked = isSelected,
+                enabled = !isBusy,
                 onCheckedChange = { viewModel.toggleSelection(file.id) }
             )
             Spacer(modifier = Modifier.width(8.dp))
@@ -340,4 +351,3 @@ fun formatFileSizeForDuplicates(size: Long): String {
     val digitGroups = (Math.log10(size.toDouble()) / Math.log10(1024.0)).toInt()
     return DecimalFormat("#,##0.#").format(size / Math.pow(1024.0, digitGroups.toDouble())) + " " + units[digitGroups]
 }
-
