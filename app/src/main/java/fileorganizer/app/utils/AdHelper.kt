@@ -7,6 +7,7 @@ import com.google.android.gms.ads.AdError
 import com.google.android.gms.ads.AdRequest
 import com.google.android.gms.ads.FullScreenContentCallback
 import com.google.android.gms.ads.LoadAdError
+import com.google.android.gms.ads.MobileAds
 import com.google.android.gms.ads.interstitial.InterstitialAd
 import com.google.android.gms.ads.interstitial.InterstitialAdLoadCallback
 
@@ -17,18 +18,20 @@ object AdHelper {
 
     private var mInterstitialAd: InterstitialAd? = null
     private var isAdLoading = false
+    private var isMobileAdsInitialized = false
+    private var isMobileAdsInitializing = false
 
     /**
      * Keep ad state aligned with the latest verified Premium entitlement.
-     * Ads stay disabled while entitlement is still unknown, preventing a Premium
-     * user from briefly seeing an ad while Google Play Billing is reconnecting.
+     * AdMob is initialized only after Google Play confirms the user is not Premium.
      */
     fun syncForEntitlement(context: Context) {
         if (!BillingManager.entitlementReady.value || BillingManager.isPremium.value) {
             clearInterstitialAd()
             return
         }
-        loadInterstitialAd(context)
+
+        ensureMobileAdsInitialized(context)
     }
 
     fun loadInterstitialAd(context: Context) {
@@ -36,7 +39,55 @@ object AdHelper {
             clearInterstitialAd()
             return
         }
-        if (mInterstitialAd != null || isAdLoading) return
+
+        if (!isMobileAdsInitialized) {
+            ensureMobileAdsInitialized(context)
+            return
+        }
+
+        loadInterstitialAdInternal(context)
+    }
+
+    private fun ensureMobileAdsInitialized(context: Context) {
+        if (!BillingManager.entitlementReady.value || BillingManager.isPremium.value) {
+            clearInterstitialAd()
+            return
+        }
+
+        if (isMobileAdsInitialized) {
+            loadInterstitialAdInternal(context)
+            return
+        }
+
+        if (isMobileAdsInitializing) return
+        isMobileAdsInitializing = true
+
+        try {
+            MobileAds.initialize(context.applicationContext) {
+                isMobileAdsInitializing = false
+                isMobileAdsInitialized = true
+
+                // Entitlement may have changed while the SDK was initializing.
+                if (!BillingManager.entitlementReady.value || BillingManager.isPremium.value) {
+                    clearInterstitialAd()
+                    return@initialize
+                }
+
+                loadInterstitialAdInternal(context.applicationContext)
+            }
+        } catch (e: Exception) {
+            isMobileAdsInitializing = false
+            Log.e(TAG, "AdMob initialization failed.", e)
+        }
+    }
+
+    private fun loadInterstitialAdInternal(context: Context) {
+        if (!BillingManager.entitlementReady.value || BillingManager.isPremium.value) {
+            clearInterstitialAd()
+            return
+        }
+
+        if (!isMobileAdsInitialized || mInterstitialAd != null || isAdLoading) return
 
         isAdLoading = true
         val adRequest = AdRequest.Builder().build()
@@ -68,7 +119,7 @@ object AdHelper {
 
     fun showInterstitialAd(context: Context, onAdDismissed: () -> Unit) {
         // Premium users (and users whose entitlement has not been verified yet)
-        // continue directly without loading or displaying an ad.
+        // continue directly without initializing, loading, or displaying AdMob.
         if (!BillingManager.entitlementReady.value || BillingManager.isPremium.value) {
             onAdDismissed()
             return
