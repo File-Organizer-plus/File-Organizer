@@ -2,7 +2,6 @@ package fileorganizer.app.ui.screens
 
 import android.app.Application
 import android.net.Uri
-import android.os.Environment
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.tom_roush.pdfbox.android.PDFBoxResourceLoader
@@ -15,7 +14,6 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
-import java.io.FileOutputStream
 
 class PdfToolsViewModel(application: Application) : AndroidViewModel(application) {
 
@@ -87,61 +85,73 @@ class PdfToolsViewModel(application: Application) : AndroidViewModel(application
 
         viewModelScope.launch {
             val result = withContext(Dispatchers.IO) {
+                var tempFile: File? = null
                 try {
                     val context = getApplication<Application>()
                     val pagesToRemove = parsePagesString(pagesString)
-                    if (pagesToRemove.isEmpty()) {
-                        return@withContext invalidMsg
-                    }
+                        ?: return@withContext invalidMsg
 
-                    val tempFile = File.createTempFile("temp_pdf", ".pdf", context.cacheDir)
-                    context.contentResolver.openInputStream(uri)?.use { input ->
+                    tempFile = File.createTempFile("temp_pdf", ".pdf", context.cacheDir)
+                    val inputStream = context.contentResolver.openInputStream(uri)
+                        ?: return@withContext failMsg.replace("%1\$s", "Unable to open PDF")
+
+                    inputStream.use { input ->
                         tempFile.outputStream().use { output ->
                             input.copyTo(output)
                         }
                     }
 
-                    val document = PDDocument.load(tempFile)
-                    val totalPages = document.numberOfPages
-                    val validPagesToRemove = pagesToRemove.filter { it in 1..totalPages }
-                    
-                    if (validPagesToRemove.size == totalPages) {
-                        document.close()
-                        tempFile.delete()
-                        return@withContext allPagesMsg
+                    PDDocument.load(tempFile).use { document ->
+                        val totalPages = document.numberOfPages
+
+                        // Reject the entire request if even one page number is outside
+                        // the selected PDF. Never silently ignore invalid pages and
+                        // perform a partial deletion.
+                        if (totalPages <= 0 || pagesToRemove.any { it !in 1..totalPages }) {
+                            return@withContext invalidMsg
+                        }
+
+                        if (pagesToRemove.size >= totalPages) {
+                            return@withContext allPagesMsg
+                        }
+
+                        // Remove from highest page number to lowest so indexes do not
+                        // shift while pages are being deleted.
+                        pagesToRemove.sortedDescending().forEach { pageNumber ->
+                            document.removePage(pageNumber - 1)
+                        }
+
+                        if (document.numberOfPages != totalPages - pagesToRemove.size) {
+                            throw IllegalStateException("PDF page deletion could not be verified")
+                        }
+
+                        val fileName = "Edited_PDF_${System.currentTimeMillis()}.pdf"
+                        val (outputStream, outputUri) = fileorganizer.app.utils.StorageUtils.createPdfOutputStream(context, fileName)
+                        outputStream.use { output ->
+                            document.save(output)
+                            output.flush()
+                        }
+
+                        // Verify that the saved PDF can actually be opened and contains
+                        // the expected number of pages before reporting success.
+                        val savedInput = outputUri?.let { context.contentResolver.openInputStream(it) }
+                            ?: throw IllegalStateException("Saved PDF could not be reopened")
+
+                        savedInput.use { savedStream ->
+                            PDDocument.load(savedStream).use { savedDocument ->
+                                if (savedDocument.numberOfPages != totalPages - pagesToRemove.size) {
+                                    throw IllegalStateException("Saved PDF page count does not match")
+                                }
+                            }
+                        }
+
+                        successMsg.replace("%1\$s", fileName)
                     }
-
-                    val fileName = "Edited_PDF_${System.currentTimeMillis()}.pdf"
-                    val (outputStream, _) = fileorganizer.app.utils.StorageUtils.createPdfOutputStream(context, fileName)
-
-                    val merger = PDFMergerUtility()
-                    merger.destinationStream = outputStream
-
-                    val splitter = com.tom_roush.pdfbox.multipdf.Splitter()
-                    val splitDocs = splitter.split(document)
-
-                    val pagesToKeep = (1..totalPages).filter { it !in validPagesToRemove }
-
-                    for (pageNum in pagesToKeep) {
-                        val singlePageDoc = splitDocs[pageNum - 1]
-                        val baos = java.io.ByteArrayOutputStream()
-                        singlePageDoc.save(baos)
-                        singlePageDoc.close()
-                        
-                        val bais = java.io.ByteArrayInputStream(baos.toByteArray())
-                        merger.addSource(bais)
-                    }
-
-                    merger.mergeDocuments(com.tom_roush.pdfbox.io.MemoryUsageSetting.setupMainMemoryOnly())
-                    outputStream.flush()
-                    outputStream.close()
-                    document.close()
-                    tempFile.delete()
-
-                    successMsg.replace("%1\$s", fileName)
                 } catch (t: Throwable) {
                     t.printStackTrace()
                     failMsg.replace("%1\$s", t.message ?: "")
+                } finally {
+                    tempFile?.delete()
                 }
             }
             _isLoading.value = false
@@ -149,31 +159,38 @@ class PdfToolsViewModel(application: Application) : AndroidViewModel(application
         }
     }
 
-    private fun parsePagesString(input: String): List<Int> {
-        val result = mutableSetOf<Int>()
-        try {
-            val parts = input.split(",")
-            for (part in parts) {
-                val trimmed = part.trim()
-                if (trimmed.contains("-")) {
-                    val rangeParts = trimmed.split("-")
-                    if (rangeParts.size == 2) {
-                        val start = rangeParts[0].trim().toInt()
-                        val end = rangeParts[1].trim().toInt()
-                        if (start <= end) {
-                            for (i in start..end) result.add(i)
-                        } else {
-                            for (i in end..start) result.add(i) // Handle RTL flipped input
-                        }
-                    }
-                } else if (trimmed.isNotEmpty()) {
-                    result.add(trimmed.toInt())
-                }
-            }
-        } catch (e: Exception) {
-            e.printStackTrace()
+    /**
+     * Parses comma-separated pages and ranges such as "1,3,5-7".
+     * Returns null when any part of the input is malformed. Reversed ranges are
+     * still accepted to preserve the existing RTL-input behavior.
+     */
+    private fun parsePagesString(input: String): Set<Int>? {
+        val result = linkedSetOf<Int>()
+        val parts = input.split(",")
+
+        if (parts.isEmpty() || parts.any { it.trim().isEmpty() }) {
+            return null
         }
-        return result.toList()
+
+        for (part in parts) {
+            val trimmed = part.trim()
+            if (trimmed.contains("-")) {
+                val rangeParts = trimmed.split("-")
+                if (rangeParts.size != 2) return null
+
+                val start = rangeParts[0].trim().toIntOrNull() ?: return null
+                val end = rangeParts[1].trim().toIntOrNull() ?: return null
+                if (start <= 0 || end <= 0) return null
+
+                val range = if (start <= end) start..end else end..start
+                result.addAll(range)
+            } else {
+                val page = trimmed.toIntOrNull() ?: return null
+                if (page <= 0) return null
+                result.add(page)
+            }
+        }
+
+        return result.takeIf { it.isNotEmpty() }
     }
 }
-
