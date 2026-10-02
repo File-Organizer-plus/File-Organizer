@@ -124,6 +124,7 @@ fun PdfToolsScreen(
     ) { uri: Uri? ->
         if (uri != null) {
             deleteUri = uri
+            pagesText = ""
             viewModel.clearResult()
         }
     }
@@ -132,6 +133,9 @@ fun PdfToolsScreen(
         if (resultMessage?.contains("نجاح") == true || resultMessage?.contains("Success") == true || resultMessage?.contains("success") == true) {
             mergeUris = emptyList()
             deleteUri = null
+            if (selectedTabIndex == 1) {
+                pagesText = ""
+            }
         }
     }
 
@@ -439,7 +443,10 @@ fun PdfToolsScreen(
                                 Spacer(modifier = Modifier.height(24.dp))
                                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                                     OutlinedButton(
-                                        onClick = { deleteUri = null },
+                                        onClick = {
+                                            deleteUri = null
+                                            pagesText = ""
+                                        },
                                         modifier = Modifier.weight(1f).height(56.dp)
                                     ) {
                                         Text(stringResource(id = R.string.action_cancel))
@@ -473,4 +480,3 @@ fun PdfToolsScreen(
         }
     }
 }
-
