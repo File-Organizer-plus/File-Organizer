@@ -4,6 +4,7 @@ import android.app.Application
 import android.content.Context
 import android.media.MediaMetadataRetriever
 import android.net.Uri
+import android.provider.OpenableColumns
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.abedelazizshe.lightcompressorlibrary.CompressionListener
@@ -49,9 +50,16 @@ class VideoCompressorViewModel(application: Application) : AndroidViewModel(appl
         _resultMessage.value = null
     }
 
-    fun startCompression(context: Context, quality: CompressQuality, successMsg: String, failMsg: String, cancelMsg: String) {
+    fun startCompression(
+        context: Context,
+        quality: CompressQuality,
+        successMsg: String,
+        failMsg: String,
+        cancelMsg: String,
+        notSmallerMsg: String
+    ) {
         val uri = selectedUri.value ?: return
-        
+
         _isCompressing.value = true
         _progress.value = 0f
         _resultMessage.value = null
@@ -64,6 +72,12 @@ class VideoCompressorViewModel(application: Application) : AndroidViewModel(appl
         }
 
         viewModelScope.launch {
+            // Query metadata only; do not read the entire source video just to get
+            // its size, so this check does not add a meaningful delay.
+            val originalSize = withContext(Dispatchers.IO) {
+                getUriSize(context, uri)
+            }
+
             VideoCompressor.start(
                 context = context,
                 uris = listOf(uri),
@@ -91,19 +105,36 @@ class VideoCompressorViewModel(application: Application) : AndroidViewModel(appl
                     override fun onSuccess(index: Int, size: Long, path: String?) {
                         viewModelScope.launch {
                             val outputIsValid = verifyCompressedOutputWithRetry(context, path, size)
-                            _isCompressing.value = false
 
-                            if (outputIsValid) {
-                                _progress.value = 100f
-                                _resultMessage.value = successMsg
-                            } else {
+                            if (!outputIsValid) {
                                 deleteInvalidOutput(context, path)
+                                _isCompressing.value = false
                                 _progress.value = 0f
                                 _resultMessage.value = failMsg.replace(
                                     "%1\$s",
                                     "Compressed video could not be verified after saving"
                                 )
+                                return@launch
                             }
+
+                            val outputSize = withContext(Dispatchers.IO) {
+                                getCompressedOutputSize(context, path, size)
+                            }
+
+                            // A valid output is not a useful compression result when
+                            // it is the same size or larger than the source. Remove the
+                            // extra copy instead of reporting a misleading success.
+                            if (originalSize > 0L && outputSize > 0L && outputSize >= originalSize) {
+                                deleteInvalidOutput(context, path)
+                                _isCompressing.value = false
+                                _progress.value = 0f
+                                _resultMessage.value = notSmallerMsg
+                                return@launch
+                            }
+
+                            _isCompressing.value = false
+                            _progress.value = 100f
+                            _resultMessage.value = successMsg
                         }
                     }
 
@@ -187,6 +218,62 @@ class VideoCompressorViewModel(application: Application) : AndroidViewModel(appl
                 e.printStackTrace()
             }
         }
+    }
+
+    private fun getCompressedOutputSize(context: Context, path: String?, reportedSize: Long): Long {
+        if (path.isNullOrBlank()) return reportedSize
+
+        val outputUri = pathToUri(path)
+        val actualSize = if (outputUri.scheme == "content") {
+            getUriSize(context, outputUri)
+        } else {
+            val filePath = outputUri.path ?: path
+            File(filePath).takeIf { it.exists() && it.isFile }?.length() ?: -1L
+        }
+
+        return if (actualSize > 0L) actualSize else reportedSize
+    }
+
+    private fun getUriSize(context: Context, uri: Uri): Long {
+        if (uri.scheme == "file") {
+            return uri.path?.let { File(it).takeIf(File::exists)?.length() } ?: -1L
+        }
+
+        try {
+            context.contentResolver.query(
+                uri,
+                arrayOf(OpenableColumns.SIZE),
+                null,
+                null,
+                null
+            )?.use { cursor ->
+                val sizeColumn = cursor.getColumnIndex(OpenableColumns.SIZE)
+                if (sizeColumn >= 0 && cursor.moveToFirst() && !cursor.isNull(sizeColumn)) {
+                    val size = cursor.getLong(sizeColumn)
+                    if (size > 0L) return size
+                }
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+
+        try {
+            context.contentResolver.openAssetFileDescriptor(uri, "r")?.use { descriptor ->
+                if (descriptor.length > 0L) return descriptor.length
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+
+        try {
+            context.contentResolver.openFileDescriptor(uri, "r")?.use { descriptor ->
+                if (descriptor.statSize > 0L) return descriptor.statSize
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+
+        return -1L
     }
 
     private fun deleteInvalidOutput(context: Context, path: String?) {
