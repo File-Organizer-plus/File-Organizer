@@ -152,7 +152,11 @@ fun VideoCompressorScreen(
                     val successMsg = stringResource(id = R.string.vc_success)
                     val failMsg = stringResource(id = R.string.vc_failed, "")
                     val cancelMsg = stringResource(id = R.string.vc_cancelled)
-                    val notSmallerMsg = stringResource(id = R.string.vc_not_smaller)
+                    val notSmallerMsg = if (java.util.Locale.getDefault().language == "ar") {
+                        "لم يقل حجم الفيديو بعد الضغط، لذلك لم يتم الاحتفاظ بنسخة إضافية."
+                    } else {
+                        "The compressed video was not smaller, so the extra copy was not kept."
+                    }
                     
                     Button(
                         onClick = {
