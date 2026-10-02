@@ -88,17 +88,21 @@ object StorageUtils {
      * Safely creates an intent to open the output PDF folder or file picker.
      */
     fun createOpenFolderIntent(context: Context): Intent {
-        return try {
-            val uri = Uri.parse("content://com.android.externalstorage.documents/document/primary:Documents%2FFileKit%20PDF")
-            Intent(Intent.ACTION_VIEW).apply {
-                setDataAndType(uri, "vnd.android.document/directory")
-                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            }
-        } catch (e: Exception) {
-            Intent(Intent.ACTION_GET_CONTENT).apply {
-                type = "application/pdf"
-                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            }
+        val folderUri = Uri.parse(
+            "content://com.android.externalstorage.documents/document/primary:Documents%2FFileKit%20PDF"
+        )
+        val folderIntent = Intent(Intent.ACTION_VIEW).apply {
+            setDataAndType(folderUri, "vnd.android.document/directory")
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
+
+        if (folderIntent.resolveActivity(context.packageManager) != null) {
+            return folderIntent
+        }
+
+        return Intent(Intent.ACTION_GET_CONTENT).apply {
+            type = "application/pdf"
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         }
     }
 }
