@@ -179,7 +179,10 @@ class PdfToolsViewModel(application: Application) : AndroidViewModel(application
                         }
                     }
 
-                    PDDocument.load(tempFile).use { document ->
+                    PDDocument.load(
+                        tempFile,
+                        createMergeMemoryUsage(context)
+                    ).use { document ->
                         val totalPages = document.numberOfPages
 
                         // Validate range boundaries before expanding them. A huge range
@@ -222,7 +225,13 @@ class PdfToolsViewModel(application: Application) : AndroidViewModel(application
                         val savedUri = outputUri
                             ?: throw IllegalStateException("Saved PDF could not be reopened")
 
-                        if (!verifySavedPdfWithRetry(context, savedUri, expectedPageCount)) {
+                        if (!verifySavedPdfWithRetry(
+                                context = context,
+                                uri = savedUri,
+                                expectedPageCount = expectedPageCount,
+                                useMixedMemory = true
+                            )
+                        ) {
                             throw IllegalStateException("Saved PDF page count does not match")
                         }
 
