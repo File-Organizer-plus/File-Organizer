@@ -302,6 +302,12 @@ class DuplicateFilesViewModel(application: Application) : AndroidViewModel(appli
         if (current.contains(fileId)) {
             current.remove(fileId)
         } else {
+            val file = _allFiles.value.firstOrNull { it.id == fileId } ?: return
+            val group = _allFiles.value.filter { it.contentHash == file.contentHash }
+            val selectedInGroup = group.count { it.id in current }
+
+            // Never allow every copy in a verified duplicate group to become selected.
+            if (selectedInGroup >= group.size - 1) return
             current.add(fileId)
         }
         _selectedFileIds.value = current
@@ -381,7 +387,21 @@ class DuplicateFilesViewModel(application: Application) : AndroidViewModel(appli
 
         viewModelScope.launch {
             try {
-                val filesToDelete = _allFiles.value.filter { it.id in selected }
+                // Final safety boundary: even if selection state becomes inconsistent,
+                // never pass every member of a verified duplicate group to deletion.
+                val filesToDelete = _allFiles.value
+                    .groupBy { it.contentHash }
+                    .values
+                    .flatMap { group ->
+                        val selectedInGroup = group.filter { it.id in selected }
+                        if (selectedInGroup.size >= group.size) {
+                            val protectedId = group.minByOrNull { it.dateAdded }?.id
+                            selectedInGroup.filterNot { it.id == protectedId }
+                        } else {
+                            selectedInGroup
+                        }
+                    }
+
                 var successCount = 0
                 var permissionDenied = false
 
