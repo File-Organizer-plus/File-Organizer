@@ -5,6 +5,7 @@ import android.net.Uri
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.tom_roush.pdfbox.android.PDFBoxResourceLoader
+import com.tom_roush.pdfbox.io.MemoryUsageSetting
 import com.tom_roush.pdfbox.multipdf.PDFMergerUtility
 import com.tom_roush.pdfbox.pdmodel.PDDocument
 import kotlinx.coroutines.Dispatchers
@@ -71,7 +72,13 @@ class PdfToolsViewModel(application: Application) : AndroidViewModel(application
                             }
                         }
 
-                        PDDocument.load(tempFile).use { document ->
+                        // Large PDFs should not be parsed entirely in RAM just for
+                        // validation. Keep up to 32 MiB in memory and spill the rest
+                        // into the app cache when necessary.
+                        PDDocument.load(
+                            tempFile,
+                            createMergeMemoryUsage(context)
+                        ).use { document ->
                             if (document.numberOfPages <= 0) {
                                 throw IllegalStateException("PDF ${index + 1} has no pages")
                             }
@@ -87,14 +94,23 @@ class PdfToolsViewModel(application: Application) : AndroidViewModel(application
                     merger.destinationStream = outputStream
 
                     outputStream.use { output ->
-                        merger.mergeDocuments(com.tom_roush.pdfbox.io.MemoryUsageSetting.setupMainMemoryOnly())
+                        // Use mixed memory instead of unrestricted main-memory-only.
+                        // Normal files stay fast in RAM; large merges can spill to cache
+                        // instead of risking an OutOfMemoryError.
+                        merger.mergeDocuments(createMergeMemoryUsage(context))
                         output.flush()
                     }
 
                     val savedUri = outputUri
                         ?: throw IllegalStateException("Merged PDF could not be reopened")
 
-                    if (!verifySavedPdfWithRetry(context, savedUri, expectedPageCount)) {
+                    if (!verifySavedPdfWithRetry(
+                            context = context,
+                            uri = savedUri,
+                            expectedPageCount = expectedPageCount,
+                            useMixedMemory = true
+                        )
+                    ) {
                         throw IllegalStateException("Merged PDF page count does not match")
                     }
 
@@ -231,25 +247,33 @@ class PdfToolsViewModel(application: Application) : AndroidViewModel(application
         }
     }
 
+    private fun createMergeMemoryUsage(context: Application): MemoryUsageSetting {
+        return MemoryUsageSetting
+            .setupMixed(32L * 1024L * 1024L)
+            .setTempDir(context.cacheDir)
+    }
+
     private suspend fun verifySavedPdfWithRetry(
         context: Application,
         uri: Uri,
-        expectedPageCount: Int
+        expectedPageCount: Int,
+        useMixedMemory: Boolean = false
     ): Boolean {
-        if (verifySavedPdfOnce(context, uri, expectedPageCount)) {
+        if (verifySavedPdfOnce(context, uri, expectedPageCount, useMixedMemory)) {
             return true
         }
 
         // Only wait when the first verification fails. Normal successful saves
         // have no added delay.
         delay(100)
-        return verifySavedPdfOnce(context, uri, expectedPageCount)
+        return verifySavedPdfOnce(context, uri, expectedPageCount, useMixedMemory)
     }
 
     private fun verifySavedPdfOnce(
         context: Application,
         uri: Uri,
-        expectedPageCount: Int
+        expectedPageCount: Int,
+        useMixedMemory: Boolean = false
     ): Boolean {
         return try {
             val savedInput = if (uri.scheme == "file") {
@@ -259,7 +283,13 @@ class PdfToolsViewModel(application: Application) : AndroidViewModel(application
             } ?: return false
 
             savedInput.use { savedStream ->
-                PDDocument.load(savedStream).use { savedDocument ->
+                val document = if (useMixedMemory) {
+                    PDDocument.load(savedStream, createMergeMemoryUsage(context))
+                } else {
+                    PDDocument.load(savedStream)
+                }
+
+                document.use { savedDocument ->
                     savedDocument.numberOfPages == expectedPageCount
                 }
             }
