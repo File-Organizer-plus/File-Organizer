@@ -12,7 +12,7 @@ coroutines = "1.10.2"
 junit = "4.13.2"
 kotlin = "2.3.20"
 
-navigationCompose = "2.8.5"
+navigationCompose = "2.9.8"
 coil = "2.6.0"
 lightcompressor = "1.3.3"
 pdfbox = "2.0.27.0"
