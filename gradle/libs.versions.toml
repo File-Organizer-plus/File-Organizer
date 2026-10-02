@@ -44,7 +44,7 @@ coil-compose = { module = "io.coil-kt:coil-compose", version.ref = "coil" }
 coil-video = { module = "io.coil-kt:coil-video", version.ref = "coil" }
 lightcompressor = { module = "com.github.AbedElazizShe:LightCompressor", version.ref = "lightcompressor" }
 pdfbox-android = { module = "com.tom-roush:pdfbox-android", version.ref = "pdfbox" }
-play-services-ads = { module = "com.google.android.gms:play-services-ads", version = "23.3.0" }
+play-services-ads = { module = "com.google.android.gms:play-services-ads", version = "25.5.0" }
 [plugins]
 android-application = { id = "com.android.application", version.ref = "androidGradlePlugin" }
 compose-compiler = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
