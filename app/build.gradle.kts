@@ -6,7 +6,7 @@ plugins {
 
 android {
     namespace = "fileorganizer.app"
-    compileSdk = 36
+    compileSdk = 37
     defaultConfig {
         applicationId = "fileorganizer.app"
         minSdk = 24
