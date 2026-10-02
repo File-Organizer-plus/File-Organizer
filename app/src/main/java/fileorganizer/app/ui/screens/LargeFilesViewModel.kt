@@ -6,6 +6,7 @@ import android.net.Uri
 import android.provider.MediaStore
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import fileorganizer.app.R
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -223,12 +224,18 @@ class LargeFilesViewModel(application: Application) : AndroidViewModel(applicati
 
                 clearSelection()
 
-                if (permissionDenied && successCount == 0) {
-                    _resultMessage.value = permissionFailMsg
-                } else if (successCount > 0) {
-                    _resultMessage.value = successMsg.replace("%1\$d", successCount.toString())
-                } else {
-                    _resultMessage.value = failMsg
+                val failedCount = filesToDelete.size - successCount
+                _resultMessage.value = when {
+                    successCount > 0 && failedCount > 0 -> {
+                        getApplication<Application>().getString(
+                            R.string.delete_partial_result,
+                            successCount,
+                            failedCount
+                        )
+                    }
+                    permissionDenied && successCount == 0 -> permissionFailMsg
+                    successCount > 0 -> successMsg.replace("%1\$d", successCount.toString())
+                    else -> failMsg
                 }
             } finally {
                 _isBusy.value = false
