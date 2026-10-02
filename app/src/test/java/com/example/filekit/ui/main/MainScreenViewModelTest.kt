@@ -1,27 +1,21 @@
-package com.example.filekit.ui.main
+package fileorganizer.app.ui.screens
 
-import com.example.filekit.data.DataRepository
-import junit.framework.TestCase.assertEquals
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.flow.flow
-import kotlinx.coroutines.test.runTest
+import org.junit.Assert.assertEquals
 import org.junit.Test
 
-class MainScreenViewModelTest {
-  @Test
-  fun uiState_initiallyLoading() = runTest {
-    val viewModel = MainScreenViewModel(FakeMyModelRepository())
-    assertEquals(viewModel.uiState.first(), MainScreenUiState.Loading)
-  }
+class FileSizeFormattingTest {
 
-  @Test
-  fun uiState_onItemSaved_isDisplayed() = runTest {
-    val viewModel = MainScreenViewModel(FakeMyModelRepository())
-    assertEquals(viewModel.uiState.first(), MainScreenUiState.Loading)
-  }
-}
+    @Test
+    fun largeFilesFormatter_formatsCommonSizes() {
+        assertEquals("0 B", formatFileSize(0))
+        assertEquals("1 KB", formatFileSize(1024))
+        assertEquals("1 MB", formatFileSize(1024L * 1024L))
+    }
 
-private class FakeMyModelRepository : DataRepository {
-  override val data: Flow<List<String>> = flow { emit(listOf("Sample")) }
+    @Test
+    fun duplicateFilesFormatter_formatsCommonSizes() {
+        assertEquals("0 B", formatFileSizeForDuplicates(0))
+        assertEquals("1 KB", formatFileSizeForDuplicates(1024))
+        assertEquals("1 MB", formatFileSizeForDuplicates(1024L * 1024L))
+    }
 }
