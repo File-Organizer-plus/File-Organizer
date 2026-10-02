@@ -143,9 +143,9 @@ https://play.google.com/store/apps/details?id=fileorganizer.app</string>
     <string name="large_title">Search Large Files (>50MB)</string>
     <string name="large_no_files">No large files found</string>
     <string name="large_searching">Searching...</string>
-    <string name="perm_storage_title">Storage Permission Required</string>
-    <string name="perm_storage_msg">To search and manage large files, this app needs access to your storage. Please grant permission to continue.</string>
-    <string name="perm_grant_btn">Grant Permission</string>
+    <string name="perm_storage_title">All Files Access Required</string>
+    <string name="perm_storage_msg">To find and manage duplicate and large files, File Organizer needs All files access. This permission is used locally on your device to find and manage these files.</string>
+    <string name="perm_grant_btn">Grant Access</string>
     <!-- Missing Duplicate Files & Common -->
     <string name="action_refresh">Refresh</string>
     <string name="action_delete">Delete</string>
