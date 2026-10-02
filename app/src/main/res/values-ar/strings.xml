@@ -149,9 +149,9 @@ https://play.google.com/store/apps/details?id=fileorganizer.app</string>
     <string name="large_title">بحث عن الملفات الكبيرة (أكبر من 50MB)</string>
     <string name="large_no_files">لم يتم العثور على ملفات كبيرة</string>
     <string name="large_searching">جاري البحث...</string>
-    <string name="perm_storage_title">إذن التخزين مطلوب</string>
-    <string name="perm_storage_msg">للبحث عن الملفات الكبيرة وإدارتها، يحتاج هذا التطبيق إلى الوصول إلى مساحة التخزين. يرجى منح الإذن للمتابعة.</string>
-    <string name="perm_grant_btn">منح الإذن</string>
+    <string name="perm_storage_title">إذن الوصول إلى جميع الملفات مطلوب</string>
+    <string name="perm_storage_msg">للبحث عن الملفات المتكررة والكبيرة وإدارتها، يحتاج منظم الملفات إلى إذن الوصول إلى جميع الملفات. تُستخدم هذه الصلاحية محليًا على جهازك للبحث عن هذه الملفات وإدارتها.</string>
+    <string name="perm_grant_btn">منح الوصول</string>
     <!-- Missing Duplicate Files & Common -->
     <string name="action_refresh">تحديث</string>
     <string name="action_delete">حذف</string>
