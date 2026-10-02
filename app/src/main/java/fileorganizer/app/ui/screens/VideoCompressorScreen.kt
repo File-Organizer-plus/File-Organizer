@@ -152,6 +152,7 @@ fun VideoCompressorScreen(
                     val successMsg = stringResource(id = R.string.vc_success)
                     val failMsg = stringResource(id = R.string.vc_failed, "")
                     val cancelMsg = stringResource(id = R.string.vc_cancelled)
+                    val notSmallerMsg = stringResource(id = R.string.vc_not_smaller)
                     
                     Button(
                         onClick = {
@@ -161,7 +162,8 @@ fun VideoCompressorScreen(
                                     quality = selectedQuality,
                                     successMsg = successMsg,
                                     failMsg = failMsg,
-                                    cancelMsg = cancelMsg
+                                    cancelMsg = cancelMsg,
+                                    notSmallerMsg = notSmallerMsg
                                 )
                             }
                         },
@@ -191,4 +193,3 @@ fun VideoCompressorScreen(
         }
     }
 }
-
