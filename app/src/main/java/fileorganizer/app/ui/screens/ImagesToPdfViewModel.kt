@@ -118,7 +118,7 @@ class ImagesToPdfViewModel : ViewModel() {
                             if (options.outHeight > reqHeight || options.outWidth > reqWidth) {
                                 val halfHeight = options.outHeight / 2
                                 val halfWidth = options.outWidth / 2
-                                while ((halfHeight / inSampleSize) >= reqHeight &&
+                                while ((halfHeight / inSampleSize) >= reqHeight ||
                                     (halfWidth / inSampleSize) >= reqWidth
                                 ) {
                                     inSampleSize *= 2
