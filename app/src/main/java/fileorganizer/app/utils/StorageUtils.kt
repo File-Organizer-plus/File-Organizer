@@ -25,6 +25,8 @@ object StorageUtils {
         val safeFileName = if (fileName.endsWith(".pdf", ignoreCase = true)) fileName else "$fileName.pdf"
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            var createdUri: Uri? = null
+
             try {
                 val contentValues = ContentValues().apply {
                     put(MediaStore.MediaColumns.DISPLAY_NAME, safeFileName)
@@ -32,19 +34,31 @@ object StorageUtils {
                     put(MediaStore.MediaColumns.RELATIVE_PATH, "${Environment.DIRECTORY_DOCUMENTS}/$SUB_FOLDER_NAME")
                 }
                 val contentUri = MediaStore.Files.getContentUri("external")
-                val uri = context.contentResolver.insert(contentUri, contentValues)
-                if (uri != null) {
-                    val stream = context.contentResolver.openOutputStream(uri)
+                createdUri = context.contentResolver.insert(contentUri, contentValues)
+
+                if (createdUri != null) {
+                    val stream = context.contentResolver.openOutputStream(createdUri)
                     if (stream != null) {
-                        return Pair(stream, uri)
+                        return Pair(stream, createdUri)
                     }
+
+                    // MediaStore row was created but no writable stream was returned.
+                    // Remove the empty entry before falling back to another save path.
+                    cleanupFailedMediaStoreEntry(context, createdUri)
+                    createdUri = null
                 }
             } catch (e: Exception) {
                 e.printStackTrace()
+
+                // If insertion succeeded before a later failure, do not leave an
+                // empty or unusable PDF entry visible in MediaStore.
+                createdUri?.let { uri ->
+                    cleanupFailedMediaStoreEntry(context, uri)
+                }
             }
         }
 
-        // Fallback for Android 9 and lower, or if MediaStore insertion fails
+        // Fallback for Android 9 and lower, or if MediaStore insertion/opening fails
         val documentsDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOCUMENTS)
         val targetDir = File(documentsDir, SUB_FOLDER_NAME)
         if (!targetDir.exists()) {
@@ -59,6 +73,14 @@ object StorageUtils {
             val appDocDir = context.getExternalFilesDir(Environment.DIRECTORY_DOCUMENTS) ?: context.filesDir
             val fallbackFile = File(appDocDir, safeFileName)
             Pair(FileOutputStream(fallbackFile), Uri.fromFile(fallbackFile))
+        }
+    }
+
+    private fun cleanupFailedMediaStoreEntry(context: Context, uri: Uri) {
+        try {
+            context.contentResolver.delete(uri, null, null)
+        } catch (cleanupError: Exception) {
+            cleanupError.printStackTrace()
         }
     }
 
