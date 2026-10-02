@@ -155,6 +155,7 @@ https://play.google.com/store/apps/details?id=fileorganizer.app</string>
     <string name="dup_delete_success">Successfully deleted.</string>
     <string name="dup_delete_fail">Failed to delete files.</string>
     <string name="dup_permission_fail">Cannot delete these files directly due to Android security restrictions. Please delete them manually from your gallery or file manager.</string>
+    <string name="delete_partial_result">Deleted %1$d file(s); %2$d could not be deleted.</string>
     <string name="dup_searching_progress">Searching... %1$d%%</string>
     <string name="action_previous">Previous</string>
     <string name="dup_page_info">Page %1$d of %2$d</string>
