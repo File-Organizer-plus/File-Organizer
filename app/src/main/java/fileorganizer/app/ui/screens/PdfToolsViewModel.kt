@@ -164,7 +164,9 @@ class PdfToolsViewModel(application: Application) : AndroidViewModel(application
                 var outputUri: Uri? = null
 
                 try {
-                    val pagesToRemove = parsePagesString(pagesString)
+                    // Parse only the compact ranges first. Do not expand a value such
+                    // as 1-9999999 into millions of integers before the PDF is opened.
+                    val pageRanges = parsePageRanges(pagesString)
                         ?: return@withContext invalidMsg
 
                     tempFile = File.createTempFile("temp_pdf", ".pdf", context.cacheDir)
@@ -180,12 +182,18 @@ class PdfToolsViewModel(application: Application) : AndroidViewModel(application
                     PDDocument.load(tempFile).use { document ->
                         val totalPages = document.numberOfPages
 
-                        // Reject the entire request if even one page number is outside
-                        // the selected PDF. Never silently ignore invalid pages and
-                        // perform a partial deletion.
-                        if (totalPages <= 0 || pagesToRemove.any { it !in 1..totalPages }) {
+                        // Validate range boundaries before expanding them. A huge range
+                        // outside the real document is rejected immediately with no
+                        // large allocation in memory.
+                        if (totalPages <= 0 || pageRanges.any {
+                                it.first !in 1..totalPages || it.last !in 1..totalPages
+                            }
+                        ) {
                             return@withContext invalidMsg
                         }
+
+                        val pagesToRemove = linkedSetOf<Int>()
+                        pageRanges.forEach { range -> pagesToRemove.addAll(range) }
 
                         if (pagesToRemove.size >= totalPages) {
                             return@withContext allPagesMsg
@@ -300,12 +308,12 @@ class PdfToolsViewModel(application: Application) : AndroidViewModel(application
     }
 
     /**
-     * Parses comma-separated pages and ranges such as "1,3,5-7".
-     * Returns null when any part of the input is malformed. Reversed ranges are
-     * still accepted to preserve the existing RTL-input behavior.
+     * Parses comma-separated pages and ranges such as "1,3,5-7" without expanding
+     * ranges into individual page numbers. Returns null when any part is malformed.
+     * Reversed ranges remain accepted to preserve the existing RTL-input behavior.
      */
-    private fun parsePagesString(input: String): Set<Int>? {
-        val result = linkedSetOf<Int>()
+    private fun parsePageRanges(input: String): List<IntRange>? {
+        val ranges = mutableListOf<IntRange>()
         val parts = input.split(",")
 
         if (parts.isEmpty() || parts.any { it.trim().isEmpty() }) {
@@ -322,15 +330,14 @@ class PdfToolsViewModel(application: Application) : AndroidViewModel(application
                 val end = rangeParts[1].trim().toIntOrNull() ?: return null
                 if (start <= 0 || end <= 0) return null
 
-                val range = if (start <= end) start..end else end..start
-                result.addAll(range)
+                ranges.add(if (start <= end) start..end else end..start)
             } else {
                 val page = trimmed.toIntOrNull() ?: return null
                 if (page <= 0) return null
-                result.add(page)
+                ranges.add(page..page)
             }
         }
 
-        return result.takeIf { it.isNotEmpty() }
+        return ranges.takeIf { it.isNotEmpty() }
     }
 }
