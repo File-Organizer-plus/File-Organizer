@@ -140,9 +140,30 @@ class ImagesToPdfViewModel : ViewModel() {
                                 )
                                 val matrix = Matrix()
                                 when (orientation) {
-                                    ExifInterface.ORIENTATION_ROTATE_90 -> matrix.postRotate(90f)
-                                    ExifInterface.ORIENTATION_ROTATE_180 -> matrix.postRotate(180f)
-                                    ExifInterface.ORIENTATION_ROTATE_270 -> matrix.postRotate(270f)
+                                    ExifInterface.ORIENTATION_FLIP_HORIZONTAL -> {
+                                        matrix.postScale(-1f, 1f)
+                                    }
+                                    ExifInterface.ORIENTATION_ROTATE_180 -> {
+                                        matrix.postRotate(180f)
+                                    }
+                                    ExifInterface.ORIENTATION_FLIP_VERTICAL -> {
+                                        matrix.postScale(-1f, 1f)
+                                        matrix.postRotate(180f)
+                                    }
+                                    ExifInterface.ORIENTATION_TRANSPOSE -> {
+                                        matrix.postScale(-1f, 1f)
+                                        matrix.postRotate(270f)
+                                    }
+                                    ExifInterface.ORIENTATION_ROTATE_90 -> {
+                                        matrix.postRotate(90f)
+                                    }
+                                    ExifInterface.ORIENTATION_TRANSVERSE -> {
+                                        matrix.postScale(-1f, 1f)
+                                        matrix.postRotate(90f)
+                                    }
+                                    ExifInterface.ORIENTATION_ROTATE_270 -> {
+                                        matrix.postRotate(270f)
+                                    }
                                 }
                                 if (!matrix.isIdentity) {
                                     val result = Bitmap.createBitmap(
