@@ -86,6 +86,7 @@ class LargeFilesViewModel(application: Application) : AndroidViewModel(applicati
 
     private fun queryLargeFiles(): List<LargeFileItem> {
         val fileList = mutableListOf<LargeFileItem>()
+        val seenMediaStoreIds = mutableSetOf<Long>()
         val projection = arrayOf(
             MediaStore.Files.FileColumns._ID,
             MediaStore.Files.FileColumns.DISPLAY_NAME,
@@ -126,7 +127,10 @@ class LargeFilesViewModel(application: Application) : AndroidViewModel(applicati
                     val data = cursor.getString(dataColumn) ?: ""
                     val uri = ContentUris.withAppendedId(collection, id)
 
-                    if (fileList.none { it.path == data }) {
+                    // Files, Images, and Video can expose the same underlying
+                    // MediaStore row. De-duplicate by _ID instead of DATA/path,
+                    // which may be unavailable on modern Android versions.
+                    if (seenMediaStoreIds.add(id)) {
                         fileList.add(LargeFileItem(id, name, size, uri, data))
                     }
                 }
