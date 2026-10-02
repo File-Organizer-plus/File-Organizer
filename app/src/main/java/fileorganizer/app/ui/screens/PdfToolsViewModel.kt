@@ -143,9 +143,11 @@ class PdfToolsViewModel(application: Application) : AndroidViewModel(application
 
         viewModelScope.launch {
             val result = withContext(Dispatchers.IO) {
+                val context = getApplication<Application>()
                 var tempFile: File? = null
+                var outputUri: Uri? = null
+
                 try {
-                    val context = getApplication<Application>()
                     val pagesToRemove = parsePagesString(pagesString)
                         ?: return@withContext invalidMsg
 
@@ -185,7 +187,9 @@ class PdfToolsViewModel(application: Application) : AndroidViewModel(application
                         }
 
                         val fileName = "Edited_PDF_${System.currentTimeMillis()}.pdf"
-                        val (outputStream, outputUri) = fileorganizer.app.utils.StorageUtils.createPdfOutputStream(context, fileName)
+                        val (outputStream, createdUri) = fileorganizer.app.utils.StorageUtils.createPdfOutputStream(context, fileName)
+                        outputUri = createdUri
+
                         outputStream.use { output ->
                             document.save(output)
                             output.flush()
@@ -202,6 +206,21 @@ class PdfToolsViewModel(application: Application) : AndroidViewModel(application
                     }
                 } catch (t: Throwable) {
                     t.printStackTrace()
+
+                    // If output creation or final verification fails, remove the
+                    // incomplete edited PDF so the user is not left with a bad file.
+                    outputUri?.let { uri ->
+                        try {
+                            if (uri.scheme == "file") {
+                                uri.path?.let { File(it).delete() }
+                            } else {
+                                context.contentResolver.delete(uri, null, null)
+                            }
+                        } catch (cleanupError: Throwable) {
+                            cleanupError.printStackTrace()
+                        }
+                    }
+
                     failMsg.replace("%1\$s", t.message ?: "")
                 } finally {
                     tempFile?.delete()
