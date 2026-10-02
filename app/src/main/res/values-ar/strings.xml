@@ -141,6 +141,7 @@ https://play.google.com/store/apps/details?id=fileorganizer.app</string>
     <string name="dup_delete_success">تم الحذف بنجاح.</string>
     <string name="dup_delete_fail">فشل في حذف الملفات.</string>
     <string name="dup_permission_fail">لا يمكن حذف هذه الملفات مباشرة بسبب قيود حماية أندرويد. يرجى حذفها يدوياً من الاستديو أو مدير الملفات.</string>
+    <string name="delete_partial_result">تم حذف %1$d ملف، وتعذر حذف %2$d ملف.</string>
     <string name="dup_err_no_selection">يرجى تحديد ملف واحد على الأقل للحذف.</string>
     <string name="dup_list_title">الملفات المتكررة:</string>
     
