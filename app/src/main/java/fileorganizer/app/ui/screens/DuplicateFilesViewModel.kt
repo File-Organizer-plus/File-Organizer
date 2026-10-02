@@ -107,6 +107,7 @@ class DuplicateFilesViewModel(application: Application) : AndroidViewModel(appli
 
     private fun queryDuplicateFiles(): List<DuplicateFileItem> {
         val fileList = mutableListOf<DuplicateFileItem>()
+        val seenMediaStoreIds = mutableSetOf<Long>()
         val projection = arrayOf(
             MediaStore.Files.FileColumns._ID,
             MediaStore.Files.FileColumns.DISPLAY_NAME,
@@ -174,7 +175,10 @@ class DuplicateFilesViewModel(application: Application) : AndroidViewModel(appli
                     val dateAdded = cursor.getLong(dateAddedColumn)
                     val uri = ContentUris.withAppendedId(collection, id)
 
-                    if (fileList.none { it.path == data }) {
+                    // The same MediaStore row can appear through Files, Images, or Video.
+                    // De-duplicate by its stable MediaStore ID instead of DATA/path,
+                    // which may be blank or unavailable on modern Android versions.
+                    if (seenMediaStoreIds.add(id)) {
                         fileList.add(DuplicateFileItem(id, name, size, uri, data, dateAdded))
                     }
 
