@@ -157,6 +157,11 @@ fun VideoCompressorScreen(
                     } else {
                         "The compressed video was not smaller, so the extra copy was not kept."
                     }
+                    val qualityProtectedMsg = if (java.util.Locale.getDefault().language == "ar") {
+                        "الفيديو مضغوط مسبقًا بمعدل منخفض، لذلك لم تتم إعادة ضغطه لتجنب تشويه الجودة."
+                    } else {
+                        "This video already has a low bitrate, so it was not recompressed to avoid visible quality loss."
+                    }
                     
                     Button(
                         onClick = {
@@ -167,7 +172,8 @@ fun VideoCompressorScreen(
                                     successMsg = successMsg,
                                     failMsg = failMsg,
                                     cancelMsg = cancelMsg,
-                                    notSmallerMsg = notSmallerMsg
+                                    notSmallerMsg = notSmallerMsg,
+                                    qualityProtectedMsg = qualityProtectedMsg
                                 )
                             }
                         },
