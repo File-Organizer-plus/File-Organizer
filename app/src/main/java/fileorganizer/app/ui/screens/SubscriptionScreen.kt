@@ -116,7 +116,7 @@ fun SubscriptionScreen(onNavigateBack: () -> Unit) {
                 },
                 description = stringResource(id = R.string.sub_6_months_desc),
                 isSelected = selectedBasePlanId == BillingManager.PLAN_6_MONTHS,
-                enabled = sixMonthPlan != null && !operationInProgress,
+                enabled = !isPremium && sixMonthPlan != null && !operationInProgress,
                 onClick = { selectedBasePlanId = BillingManager.PLAN_6_MONTHS }
             )
 
@@ -131,7 +131,7 @@ fun SubscriptionScreen(onNavigateBack: () -> Unit) {
                 },
                 description = stringResource(id = R.string.sub_1_year_desc),
                 isSelected = selectedBasePlanId == BillingManager.PLAN_12_MONTHS,
-                enabled = twelveMonthPlan != null && !operationInProgress,
+                enabled = !isPremium && twelveMonthPlan != null && !operationInProgress,
                 onClick = { selectedBasePlanId = BillingManager.PLAN_12_MONTHS },
                 isPopular = true
             )
@@ -144,7 +144,7 @@ fun SubscriptionScreen(onNavigateBack: () -> Unit) {
                         BillingManager.launchPurchase(activity, selectedBasePlanId)
                     }
                 },
-                enabled = selectedPlanAvailable && !operationInProgress,
+                enabled = !isPremium && selectedPlanAvailable && !operationInProgress,
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(56.dp),
@@ -159,7 +159,11 @@ fun SubscriptionScreen(onNavigateBack: () -> Unit) {
                     Spacer(modifier = Modifier.width(10.dp))
                 }
                 Text(
-                    text = stringResource(id = R.string.sub_subscribe_btn),
+                    text = if (isPremium) {
+                        stringResource(id = R.string.sub_active_btn)
+                    } else {
+                        stringResource(id = R.string.sub_subscribe_btn)
+                    },
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold
                 )
