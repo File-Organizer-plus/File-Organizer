@@ -13,20 +13,37 @@ import com.google.android.gms.ads.interstitial.InterstitialAdLoadCallback
 
 object AdHelper {
     private const val TAG = "AdHelper"
-    // Test Interstitial Ad Unit ID provided by Google
-    private const val AD_UNIT_ID = "ca-app-pub-5529222451841351/3631189983"
+
+    // Diagnostic branch only: Google-provided demo interstitial ID.
+    // This ID is not tied to the app's AdMob account.
+    private const val DIAGNOSTIC_TEST_MODE = true
+    private const val AD_UNIT_ID = "ca-app-pub-3940256099942544/1033173712"
 
     private var mInterstitialAd: InterstitialAd? = null
     private var isAdLoading = false
     private var isMobileAdsInitialized = false
     private var isMobileAdsInitializing = false
 
+    private fun isBlockedByEntitlement(): Boolean {
+        return !DIAGNOSTIC_TEST_MODE &&
+            (!BillingManager.entitlementReady.value || BillingManager.isPremium.value)
+    }
+
     /**
-     * Keep ad state aligned with the latest verified Premium entitlement.
-     * AdMob is initialized only after Google Play confirms the user is not Premium.
+     * In production, ad state follows the verified Premium entitlement.
+     * In this diagnostic branch, Google test ads intentionally bypass that gate
+     * so AdMob SDK behavior can be tested independently from Google Play Billing.
      */
     fun syncForEntitlement(context: Context) {
-        if (!BillingManager.entitlementReady.value || BillingManager.isPremium.value) {
+        Log.d(
+            TAG,
+            "syncForEntitlement: diagnostic=$DIAGNOSTIC_TEST_MODE, " +
+                "entitlementReady=${BillingManager.entitlementReady.value}, " +
+                "isPremium=${BillingManager.isPremium.value}"
+        )
+
+        if (isBlockedByEntitlement()) {
+            Log.d(TAG, "Ads blocked by Premium entitlement state.")
             clearInterstitialAd()
             return
         }
@@ -35,7 +52,8 @@ object AdHelper {
     }
 
     fun loadInterstitialAd(context: Context) {
-        if (!BillingManager.entitlementReady.value || BillingManager.isPremium.value) {
+        if (isBlockedByEntitlement()) {
+            Log.d(TAG, "Ad load skipped because entitlement blocks ads.")
             clearInterstitialAd()
             return
         }
@@ -49,7 +67,8 @@ object AdHelper {
     }
 
     private fun ensureMobileAdsInitialized(context: Context) {
-        if (!BillingManager.entitlementReady.value || BillingManager.isPremium.value) {
+        if (isBlockedByEntitlement()) {
+            Log.d(TAG, "AdMob initialization skipped because entitlement blocks ads.")
             clearInterstitialAd()
             return
         }
@@ -59,16 +78,22 @@ object AdHelper {
             return
         }
 
-        if (isMobileAdsInitializing) return
+        if (isMobileAdsInitializing) {
+            Log.d(TAG, "AdMob initialization already in progress.")
+            return
+        }
+
         isMobileAdsInitializing = true
+        Log.d(TAG, "Initializing Google Mobile Ads SDK. diagnostic=$DIAGNOSTIC_TEST_MODE")
 
         try {
             MobileAds.initialize(context.applicationContext) {
                 isMobileAdsInitializing = false
                 isMobileAdsInitialized = true
+                Log.d(TAG, "Google Mobile Ads SDK initialized successfully.")
 
-                // Entitlement may have changed while the SDK was initializing.
-                if (!BillingManager.entitlementReady.value || BillingManager.isPremium.value) {
+                if (isBlockedByEntitlement()) {
+                    Log.d(TAG, "Ads became blocked while AdMob was initializing.")
                     clearInterstitialAd()
                     return@initialize
                 }
@@ -82,7 +107,8 @@ object AdHelper {
     }
 
     private fun loadInterstitialAdInternal(context: Context) {
-        if (!BillingManager.entitlementReady.value || BillingManager.isPremium.value) {
+        if (isBlockedByEntitlement()) {
+            Log.d(TAG, "Internal ad load skipped because entitlement blocks ads.")
             clearInterstitialAd()
             return
         }
@@ -90,6 +116,7 @@ object AdHelper {
         if (!isMobileAdsInitialized || mInterstitialAd != null || isAdLoading) return
 
         isAdLoading = true
+        Log.d(TAG, "Loading interstitial ad. diagnostic=$DIAGNOSTIC_TEST_MODE")
         val adRequest = AdRequest.Builder().build()
 
         InterstitialAd.load(
@@ -98,19 +125,23 @@ object AdHelper {
             adRequest,
             object : InterstitialAdLoadCallback() {
                 override fun onAdFailedToLoad(adError: LoadAdError) {
-                    Log.d(TAG, "Ad failed to load: ${adError.message}")
+                    Log.e(
+                        TAG,
+                        "Ad failed to load: code=${adError.code}, " +
+                            "domain=${adError.domain}, message=${adError.message}"
+                    )
                     mInterstitialAd = null
                     isAdLoading = false
                 }
 
                 override fun onAdLoaded(interstitialAd: InterstitialAd) {
                     isAdLoading = false
-                    if (!BillingManager.entitlementReady.value || BillingManager.isPremium.value) {
-                        // Entitlement may have changed while the ad was loading.
+                    if (isBlockedByEntitlement()) {
+                        Log.d(TAG, "Loaded ad discarded because entitlement now blocks ads.")
                         mInterstitialAd = null
                         return
                     }
-                    Log.d(TAG, "Ad was loaded.")
+                    Log.d(TAG, "Interstitial ad loaded successfully.")
                     mInterstitialAd = interstitialAd
                 }
             }
@@ -118,9 +149,16 @@ object AdHelper {
     }
 
     fun showInterstitialAd(context: Context, onAdDismissed: () -> Unit) {
-        // Premium users (and users whose entitlement has not been verified yet)
-        // continue directly without initializing, loading, or displaying AdMob.
-        if (!BillingManager.entitlementReady.value || BillingManager.isPremium.value) {
+        Log.d(
+            TAG,
+            "showInterstitialAd: diagnostic=$DIAGNOSTIC_TEST_MODE, " +
+                "entitlementReady=${BillingManager.entitlementReady.value}, " +
+                "isPremium=${BillingManager.isPremium.value}, " +
+                "adReady=${mInterstitialAd != null}"
+        )
+
+        if (isBlockedByEntitlement()) {
+            Log.d(TAG, "Ad show skipped because entitlement blocks ads.")
             onAdDismissed()
             return
         }
@@ -136,7 +174,11 @@ object AdHelper {
                 }
 
                 override fun onAdFailedToShowFullScreenContent(adError: AdError) {
-                    Log.e(TAG, "Ad failed to show fullscreen content.")
+                    Log.e(
+                        TAG,
+                        "Ad failed to show: code=${adError.code}, " +
+                            "domain=${adError.domain}, message=${adError.message}"
+                    )
                     mInterstitialAd = null
                     loadInterstitialAd(activity)
                     onAdDismissed()
@@ -148,7 +190,10 @@ object AdHelper {
             }
             mInterstitialAd?.show(activity)
         } else {
-            Log.d(TAG, "The interstitial ad wasn't ready yet.")
+            Log.d(
+                TAG,
+                "Interstitial ad not ready. activityAvailable=${activity != null}; requesting load."
+            )
             if (activity != null) {
                 loadInterstitialAd(activity)
             }
