@@ -55,7 +55,6 @@ object BillingManager {
     private var isConnecting = false
     private var isPurchaseQueryInFlight = false
     private var latestProductDetails: ProductDetails? = null
-    private var activePurchaseToken: String? = null
     private val offerTokens = mutableMapOf<String, String>()
     private val pendingConnectedActions = mutableListOf<() -> Unit>()
 
@@ -176,8 +175,6 @@ object BillingManager {
                 val offers = productDetails.subscriptionOfferDetails.orEmpty()
 
                 listOf(PLAN_6_MONTHS, PLAN_12_MONTHS).forEach { basePlanId ->
-                    // offerId == null identifies the normal base-plan purchase option,
-                    // rather than a trial or promotional offer.
                     val offer = offers.firstOrNull {
                         it.basePlanId == basePlanId && it.offerId == null
                     } ?: offers.firstOrNull { it.basePlanId == basePlanId }
@@ -227,8 +224,6 @@ object BillingManager {
                     )
                 } else {
                     Log.w(TAG, "Purchase query failed: ${billingResult.responseCode} ${billingResult.debugMessage}")
-                    // Keep entitlement unknown on a failed query. In particular, do not
-                    // show ads just because Google Play was temporarily unreachable.
                     if (userInitiatedRestore) {
                         _event.value = BillingEvent.BILLING_UNAVAILABLE
                     }
@@ -245,10 +240,16 @@ object BillingManager {
     fun launchPurchase(activity: Activity, basePlanId: String) {
         clearEvent()
 
+        // Active Premium subscriptions cannot be replaced from inside the app.
+        // The user can choose a plan again after Google Play reports no active entitlement.
+        if (_isPremium.value) {
+            _event.value = BillingEvent.RESTORED
+            return
+        }
+
         val client = billingClient
         val productDetails = latestProductDetails
         val offerToken = offerTokens[basePlanId]
-        val existingPurchaseToken = activePurchaseToken
 
         if (client == null || !client.isReady) {
             _event.value = BillingEvent.BILLING_UNAVAILABLE
@@ -262,45 +263,18 @@ object BillingManager {
             return
         }
 
-        // A Premium user must replace the current subscription purchase rather than
-        // starting a second purchase. If Play has not returned that token yet, refresh
-        // entitlement first instead of launching an invalid purchase flow.
-        if (_isPremium.value && existingPurchaseToken.isNullOrBlank()) {
-            _event.value = BillingEvent.BILLING_UNAVAILABLE
-            refreshPurchases()
-            return
-        }
-
         _operationInProgress.value = true
 
-        val productParamsBuilder = BillingFlowParams.ProductDetailsParams.newBuilder()
+        val productParams = BillingFlowParams.ProductDetailsParams.newBuilder()
             .setProductDetails(productDetails)
             .setOfferToken(offerToken)
+            .build()
 
-        if (!existingPurchaseToken.isNullOrBlank()) {
-            val replacementParams = BillingFlowParams.ProductDetailsParams
-                .SubscriptionProductReplacementParams.newBuilder()
-                .setOldProductId(PRODUCT_ID)
-                .setReplacementMode(
-                    BillingFlowParams.ProductDetailsParams
-                        .SubscriptionProductReplacementParams.ReplacementMode.CHARGE_FULL_PRICE
-                )
-                .build()
-            productParamsBuilder.setSubscriptionProductReplacementParams(replacementParams)
-        }
+        val flowParams = BillingFlowParams.newBuilder()
+            .setProductDetailsParamsList(listOf(productParams))
+            .build()
 
-        val flowBuilder = BillingFlowParams.newBuilder()
-            .setProductDetailsParamsList(listOf(productParamsBuilder.build()))
-
-        if (!existingPurchaseToken.isNullOrBlank()) {
-            flowBuilder.setSubscriptionUpdateParams(
-                BillingFlowParams.SubscriptionUpdateParams.newBuilder()
-                    .setOldPurchaseToken(existingPurchaseToken)
-                    .build()
-            )
-        }
-
-        val result = client.launchBillingFlow(activity, flowBuilder.build())
+        val result = client.launchBillingFlow(activity, flowParams)
         if (result.responseCode != BillingClient.BillingResponseCode.OK) {
             _operationInProgress.value = false
             Log.w(TAG, "Unable to launch billing flow: ${result.responseCode} ${result.debugMessage}")
@@ -334,8 +308,6 @@ object BillingManager {
 
             override fun onBillingServiceDisconnected() {
                 isConnecting = false
-                // Automatic service reconnection is enabled. Keep pending entitlement
-                // unknown until a later successful Play query.
             }
         })
     }
@@ -357,7 +329,6 @@ object BillingManager {
         }
 
         val premiumActive = completedPurchases.isNotEmpty()
-        activePurchaseToken = completedPurchases.firstOrNull()?.purchaseToken
         updatePremiumState(premiumActive)
         _entitlementReady.value = true
         appContext?.let { AdHelper.syncForEntitlement(it) }
