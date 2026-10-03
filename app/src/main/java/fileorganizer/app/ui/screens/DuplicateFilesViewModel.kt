@@ -203,9 +203,15 @@ class DuplicateFilesViewModel(application: Application) : AndroidViewModel(appli
             val filesByHash = mutableMapOf<String, MutableList<DuplicateFileItem>>()
 
             for (item in group) {
-                // A single unreadable file is skipped; it does not mean the storage
-                // search itself failed.
-                val hash = calculateSha256(item)
+                // Keep the progress moving while a large candidate file is being read.
+                // The hash algorithm itself is unchanged; this callback only reports
+                // how much of the current file has already been processed.
+                val hash = calculateSha256(item) { fileProgress ->
+                    if (candidateCount > 0) {
+                        _progress.value = 0.5f +
+                            ((hashedFiles.toFloat() + fileProgress) / candidateCount.toFloat()) * 0.5f
+                    }
+                }
                 if (hash != null) {
                     filesByHash.getOrPut(hash) { mutableListOf() }
                         .add(item.copy(contentHash = hash))
@@ -233,7 +239,10 @@ class DuplicateFilesViewModel(application: Application) : AndroidViewModel(appli
         )
     }
 
-    private fun calculateSha256(item: DuplicateFileItem): String? {
+    private fun calculateSha256(
+        item: DuplicateFileItem,
+        onProgress: ((Float) -> Unit)? = null
+    ): String? {
         val context = getApplication<Application>().applicationContext
 
         return try {
@@ -244,24 +253,37 @@ class DuplicateFilesViewModel(application: Application) : AndroidViewModel(appli
                 null
             }
 
+            val readAndHash: (java.io.InputStream) -> Unit = { input ->
+                val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
+                var bytesRead = 0L
+                // Report at most about 100 times per large file and never more often
+                // than every 256 KiB so progress updates do not slow down hashing.
+                val reportStep = maxOf(256L * 1024L, item.size / 100L)
+                var nextReport = reportStep
+
+                while (true) {
+                    val read = input.read(buffer)
+                    if (read <= 0) break
+                    digest.update(buffer, 0, read)
+                    bytesRead += read
+
+                    if (item.size > 0 && bytesRead >= nextReport) {
+                        onProgress?.invoke(
+                            (bytesRead.toFloat() / item.size.toFloat()).coerceAtMost(1f)
+                        )
+                        nextReport = bytesRead + reportStep
+                    }
+                }
+
+                if (item.size > 0) {
+                    onProgress?.invoke(1f)
+                }
+            }
+
             if (inputStream != null) {
-                inputStream.use { input ->
-                    val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
-                    while (true) {
-                        val read = input.read(buffer)
-                        if (read <= 0) break
-                        digest.update(buffer, 0, read)
-                    }
-                }
+                inputStream.use(readAndHash)
             } else if (item.path.isNotBlank()) {
-                FileInputStream(item.path).use { input ->
-                    val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
-                    while (true) {
-                        val read = input.read(buffer)
-                        if (read <= 0) break
-                        digest.update(buffer, 0, read)
-                    }
-                }
+                FileInputStream(item.path).use(readAndHash)
             } else {
                 return null
             }
