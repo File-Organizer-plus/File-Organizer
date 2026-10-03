@@ -6,6 +6,7 @@ import android.content.Intent
 import android.net.Uri
 import android.os.Build
 import android.os.Environment
+import android.provider.DocumentsContract
 import android.provider.MediaStore
 import java.io.File
 import java.io.FileOutputStream
@@ -85,24 +86,36 @@ object StorageUtils {
     }
 
     /**
-     * Safely creates an intent to open the output PDF folder or file picker.
+     * Creates an ACTION_VIEW intent for browsing the PDF output folder.
+     * Never falls back to a file-picker action because that changes taps into
+     * selection behavior instead of opening files normally.
      */
     fun createOpenFolderIntent(context: Context): Intent {
-        val folderUri = Uri.parse(
-            "content://com.android.externalstorage.documents/document/primary:Documents%2FFileKit%20PDF"
+        val folderUri = DocumentsContract.buildDocumentUri(
+            "com.android.externalstorage.documents",
+            "primary:${Environment.DIRECTORY_DOCUMENTS}/$SUB_FOLDER_NAME"
         )
-        val folderIntent = Intent(Intent.ACTION_VIEW).apply {
-            setDataAndType(folderUri, "vnd.android.document/directory")
-            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-        }
+        val flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_GRANT_READ_URI_PERMISSION
 
-        if (folderIntent.resolveActivity(context.packageManager) != null) {
-            return folderIntent
-        }
+        // Some file managers (including vendor implementations) treat the document
+        // root MIME type as normal browse mode, while others expect a directory MIME.
+        // Keep every fallback as ACTION_VIEW so file taps remain open/view actions.
+        val browseIntents = listOf(
+            Intent(Intent.ACTION_VIEW).apply {
+                setDataAndType(folderUri, DocumentsContract.Root.MIME_TYPE_ITEM)
+                addFlags(flags)
+            },
+            Intent(Intent.ACTION_VIEW).apply {
+                setDataAndType(folderUri, DocumentsContract.Document.MIME_TYPE_DIR)
+                addFlags(flags)
+            },
+            Intent(Intent.ACTION_VIEW, folderUri).apply {
+                addFlags(flags)
+            }
+        )
 
-        return Intent(Intent.ACTION_GET_CONTENT).apply {
-            type = "application/pdf"
-            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-        }
+        return browseIntents.firstOrNull {
+            it.resolveActivity(context.packageManager) != null
+        } ?: browseIntents.last()
     }
 }
