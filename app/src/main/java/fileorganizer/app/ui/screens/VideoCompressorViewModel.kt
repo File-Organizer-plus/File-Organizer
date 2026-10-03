@@ -21,6 +21,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
+import kotlin.math.roundToInt
 
 enum class CompressQuality {
     VERY_HIGH, HIGH, MEDIUM, LOW
@@ -56,7 +57,8 @@ class VideoCompressorViewModel(application: Application) : AndroidViewModel(appl
         successMsg: String,
         failMsg: String,
         cancelMsg: String,
-        notSmallerMsg: String
+        notSmallerMsg: String,
+        qualityProtectedMsg: String
     ) {
         val uri = selectedUri.value ?: return
 
@@ -64,18 +66,46 @@ class VideoCompressorViewModel(application: Application) : AndroidViewModel(appl
         _progress.value = 0f
         _resultMessage.value = null
 
-        val videoQuality = when(quality) {
+        // Used only when the source bitrate cannot be read. These fallbacks are
+        // deliberately gentler than the previous HIGH/MEDIUM mappings.
+        val fallbackQuality = when(quality) {
             CompressQuality.VERY_HIGH -> VideoQuality.VERY_HIGH
-            CompressQuality.HIGH -> VideoQuality.HIGH
-            CompressQuality.MEDIUM -> VideoQuality.MEDIUM
-            CompressQuality.LOW -> VideoQuality.LOW
+            CompressQuality.HIGH -> VideoQuality.VERY_HIGH
+            CompressQuality.MEDIUM -> VideoQuality.HIGH
+            CompressQuality.LOW -> VideoQuality.MEDIUM
         }
 
         viewModelScope.launch {
             // Query metadata only; do not read the entire source video just to get
-            // its size, so this check does not add a meaningful delay.
+            // its size or bitrate, so this does not add a meaningful delay.
             val originalSize = withContext(Dispatchers.IO) {
                 getUriSize(context, uri)
+            }
+            val sourceBitrateBps = withContext(Dispatchers.IO) {
+                getVideoBitrateBps(context, uri)
+            }
+
+            // LightCompressor itself uses 2 Mbps as its minimum bitrate threshold.
+            // Avoid recompressing an already low-bitrate source because that is where
+            // visible blocking/smearing is most likely to appear.
+            if (sourceBitrateBps in 1L..2_000_000L) {
+                _isCompressing.value = false
+                _progress.value = 0f
+                _resultMessage.value = qualityProtectedMsg
+                return@launch
+            }
+
+            val targetBitrateMbps = if (sourceBitrateBps > 0L) {
+                val ratio = when(quality) {
+                    CompressQuality.VERY_HIGH -> 0.90
+                    CompressQuality.HIGH -> 0.80
+                    CompressQuality.MEDIUM -> 0.60
+                    CompressQuality.LOW -> 0.45
+                }
+                val sourceMbps = sourceBitrateBps.toDouble() / 1_000_000.0
+                maxOf(2, (sourceMbps * ratio).roundToInt())
+            } else {
+                null
             }
 
             VideoCompressor.start(
@@ -87,9 +117,10 @@ class VideoCompressorViewModel(application: Application) : AndroidViewModel(appl
                     subFolderName = "FileKit"
                 ),
                 configureWith = Configuration(
-                    quality = videoQuality,
+                    quality = fallbackQuality,
                     videoNames = listOf("FileKit_compressed_${System.currentTimeMillis()}.mp4"),
-                    isMinBitrateCheckEnabled = false,
+                    isMinBitrateCheckEnabled = true,
+                    videoBitrateInMbps = targetBitrateMbps,
                     disableAudio = false,
                     keepOriginalResolution = true
                 ),
@@ -151,6 +182,24 @@ class VideoCompressorViewModel(application: Application) : AndroidViewModel(appl
                     }
                 }
             )
+        }
+    }
+
+    private fun getVideoBitrateBps(context: Context, uri: Uri): Long {
+        val retriever = MediaMetadataRetriever()
+        return try {
+            retriever.setDataSource(context, uri)
+            retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_BITRATE)
+                ?.toLongOrNull() ?: -1L
+        } catch (e: Exception) {
+            e.printStackTrace()
+            -1L
+        } finally {
+            try {
+                retriever.release()
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
         }
     }
 
