@@ -1,8 +1,32 @@
+import java.util.Properties
+
 plugins {
   alias(libs.plugins.android.application)
   alias(libs.plugins.compose.compiler)
   alias(libs.plugins.kotlin.serialization)
 }
+
+val signingProperties = Properties()
+val signingPropertiesFile = rootProject.file("signing.properties")
+if (signingPropertiesFile.exists()) {
+    signingPropertiesFile.inputStream().use(signingProperties::load)
+}
+
+fun signingValue(propertyName: String, environmentName: String): String? {
+    return System.getenv(environmentName)?.takeIf { it.isNotBlank() }
+        ?: signingProperties.getProperty(propertyName)?.takeIf { it.isNotBlank() }
+}
+
+val releaseStoreFilePath = signingValue("storeFile", "FILE_ORGANIZER_STORE_FILE")
+val releaseStorePassword = signingValue("storePassword", "FILE_ORGANIZER_STORE_PASSWORD")
+val releaseKeyAlias = signingValue("keyAlias", "FILE_ORGANIZER_KEY_ALIAS")
+val releaseKeyPassword = signingValue("keyPassword", "FILE_ORGANIZER_KEY_PASSWORD")
+val hasReleaseSigning = listOf(
+    releaseStoreFilePath,
+    releaseStorePassword,
+    releaseKeyAlias,
+    releaseKeyPassword
+).all { !it.isNullOrBlank() }
 
 android {
     namespace = "fileorganizer.app"
@@ -16,26 +40,30 @@ android {
     }
 
     signingConfigs {
-        create("release") {
-            storeFile = file("${rootDir}/release.jks")
-            storePassword = "filekit123"
-            keyAlias = "filekit"
-            keyPassword = "filekit123"
-            enableV1Signing = true
-            enableV2Signing = true
-            enableV3Signing = true
-            enableV4Signing = true
+        if (hasReleaseSigning) {
+            create("release") {
+                storeFile = rootProject.file(releaseStoreFilePath!!)
+                storePassword = releaseStorePassword
+                keyAlias = releaseKeyAlias
+                keyPassword = releaseKeyPassword
+                enableV1Signing = true
+                enableV2Signing = true
+                enableV3Signing = true
+                enableV4Signing = true
+            }
         }
     }
 
     buildTypes {
         release {
             isMinifyEnabled = false
-            signingConfig = signingConfigs.getByName("release")
+            if (hasReleaseSigning) {
+                signingConfig = signingConfigs.getByName("release")
+            }
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
         }
         debug {
-            signingConfig = signingConfigs.getByName("release")
+            // Use Android's normal debug signing key. Never reuse the release/upload key for debug builds.
         }
     }
     compileOptions {
