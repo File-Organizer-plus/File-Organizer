@@ -1,13 +1,14 @@
 package fileorganizer.app.utils
 
+import android.content.ClipData
 import android.content.ContentValues
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
 import android.os.Environment
-import android.provider.DocumentsContract
 import android.provider.MediaStore
+import androidx.core.content.FileProvider
 import java.io.File
 import java.io.FileOutputStream
 import java.io.OutputStream
@@ -15,6 +16,9 @@ import java.io.OutputStream
 object StorageUtils {
 
     const val SUB_FOLDER_NAME = "FileKit PDF"
+
+    @Volatile
+    private var lastPdfOutputUri: Uri? = null
 
     /**
      * Creates an OutputStream for saving a PDF document.
@@ -40,6 +44,7 @@ object StorageUtils {
                 if (createdUri != null) {
                     val stream = context.contentResolver.openOutputStream(createdUri)
                     if (stream != null) {
+                        lastPdfOutputUri = createdUri
                         return Pair(stream, createdUri)
                     }
 
@@ -68,12 +73,16 @@ object StorageUtils {
 
         val targetFile = File(targetDir, safeFileName)
         return try {
-            Pair(FileOutputStream(targetFile), Uri.fromFile(targetFile))
+            val uri = Uri.fromFile(targetFile)
+            lastPdfOutputUri = uri
+            Pair(FileOutputStream(targetFile), uri)
         } catch (e: Exception) {
             // Absolute fallback: App-specific external documents directory
             val appDocDir = context.getExternalFilesDir(Environment.DIRECTORY_DOCUMENTS) ?: context.filesDir
             val fallbackFile = File(appDocDir, safeFileName)
-            Pair(FileOutputStream(fallbackFile), Uri.fromFile(fallbackFile))
+            val uri = Uri.fromFile(fallbackFile)
+            lastPdfOutputUri = uri
+            Pair(FileOutputStream(fallbackFile), uri)
         }
     }
 
@@ -86,36 +95,32 @@ object StorageUtils {
     }
 
     /**
-     * Creates an ACTION_VIEW intent for browsing the PDF output folder.
-     * Never falls back to a file-picker action because that changes taps into
-     * selection behavior instead of opening files normally.
+     * Opens the most recently created PDF output with the user's PDF viewer.
+     * Content URIs are passed through directly. Legacy file URIs are converted to a
+     * FileProvider URI so Android 7+ can grant safe temporary read access.
+     *
+     * The historical function name is kept to avoid touching unrelated UI code.
      */
     fun createOpenFolderIntent(context: Context): Intent {
-        val folderUri = DocumentsContract.buildDocumentUri(
-            "com.android.externalstorage.documents",
-            "primary:${Environment.DIRECTORY_DOCUMENTS}/$SUB_FOLDER_NAME"
-        )
-        val flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_GRANT_READ_URI_PERMISSION
+        val savedUri = lastPdfOutputUri
+            ?: throw IllegalStateException("No PDF output is available to open")
 
-        // Some file managers (including vendor implementations) treat the document
-        // root MIME type as normal browse mode, while others expect a directory MIME.
-        // Keep every fallback as ACTION_VIEW so file taps remain open/view actions.
-        val browseIntents = listOf(
-            Intent(Intent.ACTION_VIEW).apply {
-                setDataAndType(folderUri, DocumentsContract.Root.MIME_TYPE_ITEM)
-                addFlags(flags)
-            },
-            Intent(Intent.ACTION_VIEW).apply {
-                setDataAndType(folderUri, DocumentsContract.Document.MIME_TYPE_DIR)
-                addFlags(flags)
-            },
-            Intent(Intent.ACTION_VIEW, folderUri).apply {
-                addFlags(flags)
-            }
-        )
+        val viewUri = if (savedUri.scheme == "file") {
+            val path = savedUri.path
+                ?: throw IllegalStateException("Saved PDF path is unavailable")
+            FileProvider.getUriForFile(
+                context,
+                "${context.packageName}.fileprovider",
+                File(path)
+            )
+        } else {
+            savedUri
+        }
 
-        return browseIntents.firstOrNull {
-            it.resolveActivity(context.packageManager) != null
-        } ?: browseIntents.last()
+        return Intent(Intent.ACTION_VIEW).apply {
+            setDataAndType(viewUri, "application/pdf")
+            clipData = ClipData.newRawUri("PDF", viewUri)
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
     }
 }
