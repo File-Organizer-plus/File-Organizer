@@ -185,18 +185,21 @@ class DuplicateFilesViewModel(application: Application) : AndroidViewModel(appli
 
                     processedFiles++
                     if (totalFiles > 0 && processedFiles % 50 == 0) {
-                        // Scanning files is the first half of duplicate detection.
-                        _progress.value = (processedFiles.toFloat() / totalFiles.toFloat()) * 0.5f
+                        // Metadata scanning is fast, so it represents only the first
+                        // 10% of progress. Content verification carries the remaining 90%.
+                        _progress.value = (processedFiles.toFloat() / totalFiles.toFloat()) * 0.1f
                     }
                 }
             }
         }
 
+        _progress.value = 0.1f
+
         // Size is only a fast pre-filter. Files are considered duplicates only when
         // their SHA-256 content hash also matches.
         val candidateGroups = fileList.groupBy { it.size }.values.filter { it.size > 1 }
-        val candidateCount = candidateGroups.sumOf { it.size }
-        var hashedFiles = 0
+        val totalCandidateBytes = candidateGroups.sumOf { group -> group.sumOf { it.size } }
+        var processedCandidateBytes = 0L
         val verifiedDuplicates = mutableListOf<DuplicateFileItem>()
 
         for (group in candidateGroups) {
@@ -204,12 +207,16 @@ class DuplicateFilesViewModel(application: Application) : AndroidViewModel(appli
 
             for (item in group) {
                 // Keep the progress moving while a large candidate file is being read.
-                // The hash algorithm itself is unchanged; this callback only reports
-                // how much of the current file has already been processed.
+                // Weight progress by bytes, not file count, so a large file gets a
+                // proportionate share of the progress bar.
                 val hash = calculateSha256(item) { fileProgress ->
-                    if (candidateCount > 0) {
-                        _progress.value = 0.5f +
-                            ((hashedFiles.toFloat() + fileProgress) / candidateCount.toFloat()) * 0.5f
+                    if (totalCandidateBytes > 0L) {
+                        val currentBytes = processedCandidateBytes.toDouble() +
+                            (item.size.toDouble() * fileProgress.toDouble())
+                        _progress.value = (0.1 +
+                            (currentBytes / totalCandidateBytes.toDouble()) * 0.9)
+                            .toFloat()
+                            .coerceAtMost(1f)
                     }
                 }
                 if (hash != null) {
@@ -217,9 +224,12 @@ class DuplicateFilesViewModel(application: Application) : AndroidViewModel(appli
                         .add(item.copy(contentHash = hash))
                 }
 
-                hashedFiles++
-                if (candidateCount > 0) {
-                    _progress.value = 0.5f + (hashedFiles.toFloat() / candidateCount.toFloat()) * 0.5f
+                processedCandidateBytes += item.size
+                if (totalCandidateBytes > 0L) {
+                    _progress.value = (0.1 +
+                        (processedCandidateBytes.toDouble() / totalCandidateBytes.toDouble()) * 0.9)
+                        .toFloat()
+                        .coerceAtMost(1f)
                 }
             }
 
