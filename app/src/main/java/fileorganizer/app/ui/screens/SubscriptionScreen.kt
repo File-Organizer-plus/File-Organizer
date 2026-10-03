@@ -159,11 +159,7 @@ fun SubscriptionScreen(onNavigateBack: () -> Unit) {
                     Spacer(modifier = Modifier.width(10.dp))
                 }
                 Text(
-                    text = if (isPremium) {
-                        stringResource(id = R.string.sub_change_plan_btn)
-                    } else {
-                        stringResource(id = R.string.sub_subscribe_btn)
-                    },
+                    text = stringResource(id = R.string.sub_subscribe_btn),
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold
                 )
