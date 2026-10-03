@@ -116,7 +116,7 @@ fun SubscriptionScreen(onNavigateBack: () -> Unit) {
                 },
                 description = stringResource(id = R.string.sub_6_months_desc),
                 isSelected = selectedBasePlanId == BillingManager.PLAN_6_MONTHS,
-                enabled = !isPremium && sixMonthPlan != null && !operationInProgress,
+                enabled = sixMonthPlan != null && !operationInProgress,
                 onClick = { selectedBasePlanId = BillingManager.PLAN_6_MONTHS }
             )
 
@@ -131,7 +131,7 @@ fun SubscriptionScreen(onNavigateBack: () -> Unit) {
                 },
                 description = stringResource(id = R.string.sub_1_year_desc),
                 isSelected = selectedBasePlanId == BillingManager.PLAN_12_MONTHS,
-                enabled = !isPremium && twelveMonthPlan != null && !operationInProgress,
+                enabled = twelveMonthPlan != null && !operationInProgress,
                 onClick = { selectedBasePlanId = BillingManager.PLAN_12_MONTHS },
                 isPopular = true
             )
@@ -144,7 +144,7 @@ fun SubscriptionScreen(onNavigateBack: () -> Unit) {
                         BillingManager.launchPurchase(activity, selectedBasePlanId)
                     }
                 },
-                enabled = !isPremium && selectedPlanAvailable && !operationInProgress,
+                enabled = selectedPlanAvailable && !operationInProgress,
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(56.dp),
@@ -160,7 +160,7 @@ fun SubscriptionScreen(onNavigateBack: () -> Unit) {
                 }
                 Text(
                     text = if (isPremium) {
-                        stringResource(id = R.string.sub_active_btn)
+                        stringResource(id = R.string.sub_change_plan_btn)
                     } else {
                         stringResource(id = R.string.sub_subscribe_btn)
                     },
