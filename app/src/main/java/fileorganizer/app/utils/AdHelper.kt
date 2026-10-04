@@ -13,11 +13,7 @@ import com.google.android.gms.ads.interstitial.InterstitialAdLoadCallback
 
 object AdHelper {
     private const val TAG = "AdHelper"
-
-    // Temporary diagnostic mode on main: Google's official demo interstitial.
-    // Premium/Billing gating is enabled in this step to test production entitlement logic.
-    private const val DIAGNOSTIC_TEST_MODE = false
-    private const val AD_UNIT_ID = "ca-app-pub-3940256099942544/1033173712"
+    private const val AD_UNIT_ID = "ca-app-pub-5529222451841351/3631189983"
 
     private var mInterstitialAd: InterstitialAd? = null
     private var isAdLoading = false
@@ -25,15 +21,13 @@ object AdHelper {
     private var isMobileAdsInitializing = false
 
     private fun isBlockedByEntitlement(): Boolean {
-        return !DIAGNOSTIC_TEST_MODE &&
-            (!BillingManager.entitlementReady.value || BillingManager.isPremium.value)
+        return !BillingManager.entitlementReady.value || BillingManager.isPremium.value
     }
 
     fun syncForEntitlement(context: Context) {
         Log.d(
             TAG,
-            "syncForEntitlement: diagnostic=$DIAGNOSTIC_TEST_MODE, " +
-                "entitlementReady=${BillingManager.entitlementReady.value}, " +
+            "syncForEntitlement: entitlementReady=${BillingManager.entitlementReady.value}, " +
                 "isPremium=${BillingManager.isPremium.value}"
         )
 
@@ -79,7 +73,7 @@ object AdHelper {
         }
 
         isMobileAdsInitializing = true
-        Log.d(TAG, "Initializing Google Mobile Ads SDK. diagnostic=$DIAGNOSTIC_TEST_MODE")
+        Log.d(TAG, "Initializing Google Mobile Ads SDK.")
 
         try {
             MobileAds.initialize(context.applicationContext) {
@@ -111,7 +105,7 @@ object AdHelper {
         if (!isMobileAdsInitialized || mInterstitialAd != null || isAdLoading) return
 
         isAdLoading = true
-        Log.d(TAG, "Loading interstitial ad. diagnostic=$DIAGNOSTIC_TEST_MODE")
+        Log.d(TAG, "Loading interstitial ad.")
         val adRequest = AdRequest.Builder().build()
 
         InterstitialAd.load(
@@ -146,8 +140,7 @@ object AdHelper {
     fun showInterstitialAd(context: Context, onAdDismissed: () -> Unit) {
         Log.d(
             TAG,
-            "showInterstitialAd: diagnostic=$DIAGNOSTIC_TEST_MODE, " +
-                "entitlementReady=${BillingManager.entitlementReady.value}, " +
+            "showInterstitialAd: entitlementReady=${BillingManager.entitlementReady.value}, " +
                 "isPremium=${BillingManager.isPremium.value}, " +
                 "adReady=${mInterstitialAd != null}"
         )
