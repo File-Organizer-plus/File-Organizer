@@ -95,9 +95,9 @@ class LargeFilesViewModel(application: Application) : AndroidViewModel(applicati
             MediaStore.Files.FileColumns.DATA
         )
 
-        // Looking for files larger than 10MB to include images and videos
+        // Looking for files larger than 50MB to match the UI label.
         val selection = "${MediaStore.Files.FileColumns.SIZE} > ?"
-        val selectionArgs = arrayOf((10 * 1024 * 1024).toString())
+        val selectionArgs = arrayOf((50 * 1024 * 1024).toString())
         val sortOrder = "${MediaStore.Files.FileColumns.SIZE} DESC"
 
         val context = getApplication<Application>().applicationContext
