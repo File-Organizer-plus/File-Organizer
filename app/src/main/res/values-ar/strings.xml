@@ -51,7 +51,6 @@
     <string name="settings_icon_desc">الإعدادات</string>
     <string name="settings_cache_size_prefix">المساحة المؤقتة: </string>
     <string name="settings_save_location_desc">تُحفظ الملفات تلقائياً في مجلدات الهاتف الأساسية (ولا يمكن تغييره لأسباب تقنية)</string>
-    <string name="settings_app_version_value">الإصدار 1.0.12</string>
     <string name="settings_share_subject">تطبيق منظم الملفات (FileKit)</string>
     <string name="settings_share_text">جرب تطبيق منظم الملفات الرائع للتحكم بالفيديوهات والصور والـ PDF! 
 https://play.google.com/store/apps/details?id=fileorganizer.app</string>
