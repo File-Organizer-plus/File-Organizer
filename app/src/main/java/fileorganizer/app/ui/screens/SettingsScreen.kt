@@ -73,7 +73,7 @@ fun SettingsScreen(
                 .verticalScroll(rememberScrollState())
                 .padding(paddingValues)
                 .consumeWindowInsets(paddingValues)
-                .padding(start = 24.dp, top = 24.dp, end = 24.dp, bottom = 24.dp)
+                .padding(start = 24.dp, top = 12.dp, end = 24.dp, bottom = 12.dp)
         ) {
             SettingsSectionTitle(title = stringResource(id = R.string.settings_ads_section))
             SettingsItemCard {
@@ -86,7 +86,7 @@ fun SettingsScreen(
                 )
             }
 
-            Spacer(modifier = Modifier.height(24.dp))
+            Spacer(modifier = Modifier.height(12.dp))
 
             val prefs = context.getSharedPreferences("Settings", Context.MODE_PRIVATE)
             val currentLang = prefs.getString("language", "ar") ?: "ar"
@@ -214,7 +214,7 @@ fun SettingsScreen(
                 )
             }
 
-            Spacer(modifier = Modifier.height(24.dp))
+            Spacer(modifier = Modifier.height(12.dp))
 
             SettingsSectionTitle(title = stringResource(id = R.string.settings_about_section))
             SettingsItemCard {
@@ -292,7 +292,7 @@ fun SettingsScreen(
                 )
             }
 
-            Spacer(modifier = Modifier.height(32.dp))
+            Spacer(modifier = Modifier.height(8.dp))
         }
     }
 }
@@ -304,7 +304,7 @@ fun SettingsSectionTitle(title: String) {
         style = MaterialTheme.typography.titleMedium,
         fontWeight = FontWeight.Bold,
         color = MaterialTheme.colorScheme.primary,
-        modifier = Modifier.padding(bottom = 8.dp, start = 8.dp)
+        modifier = Modifier.padding(bottom = 6.dp, start = 8.dp)
     )
 }
 
@@ -334,7 +334,7 @@ fun SettingsRowItem(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onClick)
-            .padding(16.dp),
+            .padding(horizontal = 16.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Icon(
