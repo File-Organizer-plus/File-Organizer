@@ -15,8 +15,8 @@ object AdHelper {
     private const val TAG = "AdHelper"
 
     // Temporary diagnostic mode on main: Google's official demo interstitial.
-    // This is not tied to the app's AdMob account and must be reverted after testing.
-    private const val DIAGNOSTIC_TEST_MODE = true
+    // Premium/Billing gating is enabled in this step to test production entitlement logic.
+    private const val DIAGNOSTIC_TEST_MODE = false
     private const val AD_UNIT_ID = "ca-app-pub-3940256099942544/1033173712"
 
     private var mInterstitialAd: InterstitialAd? = null
