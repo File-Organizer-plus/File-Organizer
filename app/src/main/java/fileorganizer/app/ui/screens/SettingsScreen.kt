@@ -48,6 +48,9 @@ fun SettingsScreen(
     viewModel: SettingsViewModel = viewModel()
 ) {
     val context = LocalContext.current
+    val appVersion = remember(context) {
+        context.packageManager.getPackageInfo(context.packageName, 0).versionName.orEmpty()
+    }
 
     Scaffold(
         topBar = {
@@ -70,7 +73,9 @@ fun SettingsScreen(
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState())
                 .padding(paddingValues)
-                .padding(24.dp)
+                .consumeWindowInsets(paddingValues)
+                .navigationBarsPadding()
+                .padding(horizontal = 24.dp, top = 24.dp, bottom = 24.dp)
         ) {
             
             // Ads Section
@@ -214,7 +219,7 @@ fun SettingsScreen(
                 SettingsRowItem(
                     icon = Icons.Filled.Info,
                     title = stringResource(id = R.string.settings_app_version),
-                    subtitle = stringResource(id = R.string.settings_app_version_value),
+                    subtitle = appVersion,
                     onClick = { }
                 )
                 HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.outlineVariant)
