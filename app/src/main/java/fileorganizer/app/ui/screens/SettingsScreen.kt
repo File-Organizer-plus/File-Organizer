@@ -75,7 +75,7 @@ fun SettingsScreen(
                 .padding(paddingValues)
                 .consumeWindowInsets(paddingValues)
                 .navigationBarsPadding()
-                .padding(horizontal = 24.dp, top = 24.dp, bottom = 24.dp)
+                .padding(start = 24.dp, top = 24.dp, end = 24.dp, bottom = 24.dp)
         ) {
             
             // Ads Section
