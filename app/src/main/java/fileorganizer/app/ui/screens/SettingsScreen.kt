@@ -48,6 +48,7 @@ fun SettingsScreen(
     }
 
     Scaffold(
+        modifier = Modifier.navigationBarsPadding(),
         topBar = {
             TopAppBar(
                 title = { Text(stringResource(id = R.string.settings_title), fontWeight = FontWeight.Bold) },
@@ -72,7 +73,7 @@ fun SettingsScreen(
                 .verticalScroll(rememberScrollState())
                 .padding(paddingValues)
                 .consumeWindowInsets(paddingValues)
-                .padding(start = 24.dp, top = 24.dp, end = 24.dp)
+                .padding(start = 24.dp, top = 24.dp, end = 24.dp, bottom = 24.dp)
         ) {
             SettingsSectionTitle(title = stringResource(id = R.string.settings_ads_section))
             SettingsItemCard {
@@ -291,10 +292,7 @@ fun SettingsScreen(
                 )
             }
 
-            // Scrollable clearance for devices using the 3-button navigation bar.
-            // Keeping this inside the scroll content guarantees the final row can move
-            // completely above the system navigation controls even in edge-to-edge mode.
-            Spacer(modifier = Modifier.height(112.dp))
+            Spacer(modifier = Modifier.height(32.dp))
         }
     }
 }
